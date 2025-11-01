@@ -1,23 +1,19 @@
+import cors from "cors";
 import express from "express";
 import dotenv from "dotenv";
-import mongoose from "mongoose";
-import cors from "cors";
-
-import authRoutes from "./routes/authRoutes.js";
-import productRoutes from "./routes/productRoutes.js";
-import showroomRoutes from "./routes/showroomRoutes.js";
-import orderRoutes from "./routes/orderRoutes.js";
 
 dotenv.config();
 const app = express();
 
-
 app.use(express.json());
+
+// ✅ Allow both Vercel frontend URLs
 app.use(cors({
   origin: [
-    'https://showroom-ar-91by.vercel.app',  // Your Vercel frontend
-    'http://showroom-ar-91by-h58ms02ad-mellifvs-projects.vercel.app'
+    "https://showroom-ar-91by.vercel.app",
+    "https://showroom-ar-91by-h58ms02ad-mellifvs-projects.vercel.app"
   ],
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   credentials: true
 }));
 mongoose
