@@ -13,13 +13,17 @@ const app = express();
 app.use(express.json());
 
 app.use(cors({
-  origin: [
-    "https://showroom-ar-91by.vercel.app",
-    "https://showroom-ar-91by-h58ms02ad-mellifvs-projects.vercel.app"
-  ],
+  origin: (origin, callback) => {
+    if (!origin || origin.includes("vercel.app")) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  credentials: true
+  credentials: true,
 }));
+
 
 mongoose
   .connect(process.env.MONGO_URI)
