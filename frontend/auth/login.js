@@ -1,4 +1,4 @@
-import { API } from "../js/api.js";     // ✅ Correct
+import { API } from "../js/api.js";
 
 document.getElementById("loginForm").addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -15,7 +15,7 @@ document.getElementById("loginForm").addEventListener("submit", async (e) => {
   try {
     console.log('Attempting login with:', { email, password: '***' });
 
-    const data = await API.login(email, password);
+    const data = await API.login({ email, password }); // Fixed: pass object
     console.log('Login response:', data);
 
     // Save token and user info
@@ -23,15 +23,17 @@ document.getElementById("loginForm").addEventListener("submit", async (e) => {
     localStorage.setItem("user", JSON.stringify(data.user));
 
     alert("Login successful!");
-// Update navigation
-if (typeof AuthManager !== 'undefined') {
-    AuthManager.updateNavigation();
-}
+    
+    // Update navigation
+    if (typeof AuthManager !== 'undefined') {
+      AuthManager.updateNavigation();
+    }
+    
     // Redirect based on role
     if (data.user.role === "admin") {
       window.location.href = "../admin/admin.html";
     } else {
-      window.location.href = "../categories/categories.html"; // Fixed path
+      window.location.href = "../categories/categories.html";
     }
 
   } catch (err) {
@@ -44,14 +46,15 @@ if (typeof AuthManager !== 'undefined') {
   }
 });
 
-// Test API connection on page load
+// Test API connection on page load - UPDATED VERSION
 document.addEventListener('DOMContentLoaded', async () => {
   try {
-    // Try to ping the backend to check connectivity
-    const response = await fetch('http://localhost:5000/api/');
-    console.log('Backend connectivity check:', response.status);
+    // Test the actual backend URL, not localhost
+    console.log('Testing connection to backend...');
+    const response = await fetch('https://showroomar-production.up.railway.app/api/');
+    console.log('✅ Backend is reachable. Status:', response.status);
   } catch (error) {
-    console.error('Cannot connect to backend:', error);
-    alert('Warning: Cannot connect to server. Make sure backend is running on localhost:5000');
+    console.error('❌ Cannot connect to backend:', error);
+    alert('Warning: Cannot connect to the server. Please check your internet connection.');
   }
 });
