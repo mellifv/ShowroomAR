@@ -16,7 +16,7 @@ app.use(express.json());
 app.use(cors({
   origin: [
     'https://showroom-ar-91by.vercel.app',  // Your Vercel frontend
-    'http://localhost:3000'
+    'http://showroom-ar-91by-h58ms02ad-mellifvs-projects.vercel.app'
   ],
   credentials: true
 }));
