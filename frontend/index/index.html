@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="../js/auth-check.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Virtual Try-On Store</title>
+  <link rel="stylesheet" href="index.css">
+</head>
+<body>
+  <!-- Navigation Header -->
+  <header>
+    <nav class="navbar">
+      <div class="nav-brand">
+        <h1>Virtual Try-On Fashion</h1>
+      </div>
+      <div class="nav-links">
+        <a href="index.html" class="nav-link">Home</a>
+        <a href="../categories/categories.html" class="nav-link">Categories</a>
+        <a href="../showroom/showroom.html" class="nav-link">Showrooms</a>
+        <a href="../cart/cart.html" class="nav-link">Cart</a>
+      </div>
+      <!-- In index.html - Update the nav-auth section -->
+<div class="nav-auth" id="nav-auth">
+    <!-- This will be dynamically updated by JavaScript -->
+    <a href="../auth/login.html" class="btn-login" id="login-btn">Login</a>
+    <a href="../auth/register.html" class="btn-register" id="register-btn">Register</a>
+</div>
+    </nav>
+  </header>
+
+  <main class="home-container">
+    <!-- Hero Section -->
+    <section class="hero">
+      <div class="hero-content">
+        <h1>Experience Fashion in Augmented Reality</h1>
+        <p>Try before you buy with our virtual fitting room technology</p>
+        <div class="hero-buttons">
+          <a href="../categories/categories.html" class="btn btn-primary">Start Shopping</a>
+          <a href="../tryon/tryon.html" class="btn btn-secondary">Try Virtual Try-On</a>
+        </div>
+      </div>
+      <div class="hero-image">
+        <img src="../images/logodilnaz.png" alt="AR Try-On Experience">
+      </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="features">
+      <h2>Why Choose Virtual Try-On?</h2>
+      <div class="features-grid">
+        <div class="feature-card">
+          <img src="../images/ar-icon.png" alt="AR Technology">
+          <h3>Augmented Reality</h3>
+          <p>See how clothes look on you in real-time using your camera</p>
+        </div>
+        <div class="feature-card">
+          <img src="../images/local-icon.png" alt="Local Businesses">
+          <h3>Support Local</h3>
+          <p>Discover and shop from local fashion showrooms in your area</p>
+        </div>
+        <div class="feature-card">
+          <img src="../images/fit-icon.png" alt="Perfect Fit">
+          <h3>Perfect Fit</h3>
+          <p>Reduce returns by finding your perfect size and style</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Categories Preview -->
+    <section class="categories-preview">
+      <h2>Discover Our Categories</h2>
+      <p>Explore our stylish showrooms — try on outfits virtually, and shop instantly!</p>
+      
+      <div class="categories-grid">
+        <div class="category-card">
+          <img src="../images/shirt.png" alt="Shirts">
+          <h3>Trendy Shirts</h3>
+          <p>Formal and casual shirts for every occasion</p>
+          <a href="categories/categories.html?category=shirts" class="btn-category">Explore</a>
+        </div>
+        <div class="category-card">
+          <img src="../images/suit.png" alt="Suits">
+          <h3>Elegant Suits</h3>
+          <p>Professional and wedding suits collection</p>
+          <a href="categories/categories.html?category=suits" class="btn-category">Explore</a>
+        </div>
+        <div class="category-card">
+          <img src="../images/jacket.png" alt="Hoodies">
+          <h3>Casual Hoodies</h3>
+          <p>Comfortable and stylish hoodies</p>
+          <a href="categories/categories.html?category=hoodies" class="btn-category">Explore</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Showrooms Preview -->
+    <section class="showrooms-preview">
+      <h2>Featured Local Showrooms</h2>
+      <p>Support local businesses in your community</p>
+      <a href="../showroom/showroom.html" class="btn btn-primary">View All Showrooms</a>
+    </section>
+  </main>
+
+
+  <script src="index.js"></script>
+      <!-- In the head section -->
+
+</body>
+</html>

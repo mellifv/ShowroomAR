@@ -1,0 +1,123 @@
+/* Fashion Boutique Auth Styles — works for both login and register */
+
+/* ---------- Theme Colors ---------- */
+:root {
+  --accent: #0b63a8;
+  --accent-light: #0f88d3;
+  --bg: #f8fafc;
+  --card-bg: #ffffff;
+  --text-dark: #1e293b;
+  --muted: #64748b;
+  --shadow: 0 8px 25px rgba(15, 23, 42, 0.08);
+  --radius: 14px;
+  --font: "Poppins", "Inter", system-ui, sans-serif;
+}
+
+/* ---------- Page Layout ---------- */
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: linear-gradient(180deg, #f9fbfd 0%, var(--bg) 100%);
+  font-family: var(--font);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-dark);
+}
+
+/* ---------- Auth Container ---------- */
+.auth-container {
+  background: var(--card-bg);
+  padding: 40px 32px;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  width: 100%;
+  max-width: 400px;
+  box-sizing: border-box;
+  text-align: center;
+}
+
+.auth-container h2 {
+  margin-bottom: 24px;
+  font-size: 26px;
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+/* ---------- Form Elements ---------- */
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+input {
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  font-size: 15px;
+  background: #f9fafb;
+  color: var(--text-dark);
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 6px rgba(11, 99, 168, 0.15);
+}
+
+/* ---------- Button ---------- */
+.btn {
+  padding: 12px;
+  border-radius: 10px;
+  border: none;
+  background: linear-gradient(90deg, var(--accent), var(--accent-light));
+  color: white;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(11, 99, 168, 0.25);
+}
+
+.btn:active {
+  transform: translateY(1px);
+}
+
+/* ---------- Links ---------- */
+p {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 480px) {
+  .auth-container {
+    margin: 20px;
+    padding: 30px 20px;
+  }
+
+  .auth-container h2 {
+    font-size: 22px;
+  }
+
+  input, .btn {
+    font-size: 15px;
+  }
+}

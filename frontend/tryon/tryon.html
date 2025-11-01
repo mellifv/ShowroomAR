@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Try On | VestaWear</title>
+  <link rel="stylesheet" href="tryon.css" />
+</head>
+<body class="tryon-page">
+  <header>
+    <h1 class="logo">VestaWear</h1>
+    <nav>
+  <a href="../index/index.html">Home</a>
+  <a href="../categories/categories.html">Categories</a>
+  <a href="tryon.html" class="active">Try On</a>
+</nav>
+
+  </header>
+<main class="tryon-container">
+  <div class="camera-wrapper">
+    <video id="input_video" style="display:none;"></video>
+    <canvas id="output_canvas" width="640" height="480"></canvas>
+  </div>
+
+  <div class="right-panel">
+    <h2>Virtual Try-On</h2>
+
+    <div class="control-panel">
+      <label for="clothingSelect">Choose an outfit:</label>
+      <select id="clothingSelect">
+        <option value= none>Choose</option>
+        <option value="../images/shirt.png">Blue Shirt</option>
+        <option value="../images/jacket.png">Jacket</option>
+        <option value="../images/suit.png">Suit</option>
+      </select>
+    </div>
+
+    <a href="../index/index.html" class="btn-secondary">← Return to Main Page</a>
+  </div>
+</main>
+
+
+  <footer>
+    <p>© 2025 VestaWear | Virtual Fitting Experience</p>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5/pose.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

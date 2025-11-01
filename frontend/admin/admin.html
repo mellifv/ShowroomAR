@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin Dashboard</title>
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+  <header>
+    <h1>Admin Dashboard</h1>
+    <a href="../index/index.html" class="btn">← Back to Home</a>
+  </header>
+
+  <main class="admin-panel">
+    <section>
+      <h2>Add Showroom</h2>
+      <form id="showroomForm">
+        <input type="text" id="showroomName" placeholder="Showroom Name" required>
+        <input type="text" id="showroomDesc" placeholder="Description" required>
+        <input type="text" id="showroomLogo" placeholder="Logo URL" required>
+        <button type="submit" class="btn">Add Showroom</button>
+      </form>
+    </section>
+
+    <section>
+      <h2>Add Product</h2>
+      <form id="productForm">
+        <input type="text" id="productName" placeholder="Product Name" required>
+        <input type="number" id="productPrice" placeholder="Price" required>
+        <input type="text" id="productCategory" placeholder="Category" required>
+        <input type="text" id="productImage" placeholder="Image URL" required>
+        <input type="text" id="productShowroomId" placeholder="Showroom ID" required>
+        <button type="submit" class="btn">Add Product</button>
+      </form>
+    </section>
+  </main>
+
+  <script type="module" src="adminDashboard.js"></script>
+</body>
+</html>
