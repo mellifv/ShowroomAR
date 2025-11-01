@@ -1,4 +1,4 @@
-const API_BASE = "http://localhost:5000/api";
+const API_BASE = "https://your-backend.railway.app";
 
 class API {
   static baseUrl = API_BASE;
