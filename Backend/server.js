@@ -1,13 +1,17 @@
-import cors from "cors";
 import express from "express";
+import cors from "cors";
 import dotenv from "dotenv";
+import mongoose from "mongoose";  // ✅ Correct import
+import authRoutes from "./routes/authRoutes.js";
+import productRoutes from "./routes/productRoutes.js";
+import showroomRoutes from "./routes/showroomRoutes.js";
+import orderRoutes from "./routes/orderRoutes.js";
 
 dotenv.config();
 const app = express();
 
 app.use(express.json());
 
-// ✅ Allow both Vercel frontend URLs
 app.use(cors({
   origin: [
     "https://showroom-ar-91by.vercel.app",
@@ -16,6 +20,7 @@ app.use(cors({
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   credentials: true
 }));
+
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => console.log("✅ MongoDB connected"))
