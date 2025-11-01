@@ -1,4 +1,4 @@
-const API_BASE = "https://showroomar-production.up.railway.app/api";
+const API_BASE = "https://showroomar-production.up.railway.app";
 
 class API {
   static baseUrl = API_BASE;
