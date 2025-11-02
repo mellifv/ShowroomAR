@@ -25,18 +25,21 @@ clothingSelect.addEventListener("change", () => {
 function onResults(results) {
     if (!videoElement.srcObject) return;
     
+    // Clear and draw camera feed
     canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-    
-    // ✅ FIX: Always show the camera feed
     canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
 
-    // Show debug info on canvas
-    canvasCtx.fillStyle = 'white';
-    canvasCtx.font = '16px Arial';
-    canvasCtx.fillText('Camera: Active | Pose: ' + (results.poseLandmarks ? 'Detected' : 'Searching'), 10, 30);
+    if (!shirtLoaded || !results.poseLandmarks) {
+        // Show instruction when no pose detected
+        canvasCtx.fillStyle = 'white';
+        canvasCtx.font = '18px Arial';
+        canvasCtx.textAlign = 'center';
+        canvasCtx.fillText('Stand in front of camera', canvasElement.width/2, 50);
+        canvasCtx.fillText('to try on clothes', canvasElement.width/2, 80);
+        return;
+    }
 
-    if (!shirtLoaded || !results.poseLandmarks) return;
-
+    // Draw clothing on pose
     const leftShoulder = results.poseLandmarks[11];
     const rightShoulder = results.poseLandmarks[12];
     const leftHip = results.poseLandmarks[23];
@@ -73,102 +76,39 @@ pose.setOptions({
 });
 pose.onResults(onResults);
 
-// **FIXED CAMERA START WITH VISIBLE FEED**
+// **CLEAN CAMERA START**
 async function startCamera() {
     console.log('📷 Starting camera...');
     
     try {
-        // Try different camera options
-        const constraints = { 
+        const stream = await navigator.mediaDevices.getUserMedia({
             video: { 
                 width: { ideal: 640 },
-                height: { ideal: 480 },
-                frameRate: { ideal: 30 }
+                height: { ideal: 480 }
             } 
-        };
+        });
 
-        console.log('🔄 Requesting camera access...');
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
         console.log('✅ Camera access granted');
         
-        // ✅ FIX: Make sure video element is visible for testing
-        videoElement.style.display = 'block';
-        videoElement.style.width = '100%';
-        videoElement.style.maxWidth = '400px';
-        videoElement.style.margin = '10px auto';
-        videoElement.style.border = '2px solid green';
-        
+        // Hide the video element (we only need canvas)
+        videoElement.style.display = 'none';
         videoElement.srcObject = stream;
         
         // Wait for video to be ready
         await new Promise((resolve) => {
             videoElement.onloadedmetadata = () => {
-                console.log('✅ Video metadata loaded');
-                videoElement.play()
-                    .then(() => {
-                        console.log('✅ Video is playing');
-                        resolve();
-                    })
-                    .catch(error => {
-                        console.error('❌ Video play failed:', error);
-                        resolve();
-                    });
+                videoElement.play().then(resolve).catch(resolve);
             };
-            
-            // Timeout fallback
-            setTimeout(resolve, 3000);
+            setTimeout(resolve, 2000);
         });
 
-        // ✅ TEST: Show raw camera feed temporarily
-        showRawCameraFeed();
-        
-        // Start MediaPipe after a short delay
-        setTimeout(startMediaPipeProcessing, 1000);
+        // Start MediaPipe
+        startMediaPipeProcessing();
         
     } catch (error) {
         console.error('❌ Camera start failed:', error);
-        showCameraError(error);
-    }
-}
-
-// ✅ NEW: Show raw camera feed for testing
-function showRawCameraFeed() {
-    const testDiv = document.createElement('div');
-    testDiv.innerHTML = `
-        <div style="
-            position: fixed;
-            top: 80px;
-            left: 10px;
-            background: rgba(0,0,0,0.8);
-            color: white;
-            padding: 10px;
-            border-radius: 5px;
-            z-index: 999;
-            font-size: 12px;
-        ">
-            <div>📹 RAW CAMERA FEED:</div>
-            <video id="testVideo" autoplay muted playsinline 
-                   style="width: 150px; border: 2px solid red; margin: 5px 0;"></video>
-            <div>🎯 POSE DETECTION:</div>
-            <canvas id="testCanvas" width="150" height="100" 
-                    style="border: 2px solid blue; margin: 5px 0;"></canvas>
-        </div>
-    `;
-    document.body.appendChild(testDiv);
-    
-    // Show raw video feed
-    const testVideo = document.getElementById('testVideo');
-    const testCanvas = document.getElementById('testCanvas');
-    const testCtx = testCanvas.getContext('2d');
-    
-    if (videoElement.srcObject) {
-        testVideo.srcObject = videoElement.srcObject;
-        testVideo.play();
-        
-        // Update test canvas periodically
-        setInterval(() => {
-            testCtx.drawImage(testVideo, 0, 0, testCanvas.width, testCanvas.height);
-        }, 100);
+        alert('Camera error: ' + error.message);
+        updateStartButton('error');
     }
 }
 
@@ -196,40 +136,32 @@ function startMediaPipeProcessing() {
     });
 }
 
-function showCameraError(error) {
-    let message = 'Camera error: ' + error.message;
-    alert(message);
-    updateStartButton('error');
-}
-
-// Start button
+// **SIMPLE START BUTTON**
 let startButton = null;
 
 function setupStartButton() {
     startButton = document.createElement('button');
     startButton.textContent = '🎥 Start Camera';
-    startButton.id = 'cameraStartBtn';
     startButton.style.cssText = `
         position: fixed;
-        top: 20px;
+        top: 80px;
         left: 50%;
         transform: translateX(-50%);
         z-index: 1000;
-        padding: 15px 25px;
+        padding: 12px 24px;
         background: #007bff;
         color: white;
         border: none;
         border-radius: 25px;
-        font-size: 18px;
+        font-size: 16px;
         cursor: pointer;
         box-shadow: 0 4px 15px rgba(0,0,0,0.3);
         font-weight: bold;
     `;
     
     startButton.onclick = async () => {
-        startButton.textContent = '🔍 Starting...';
+        startButton.textContent = 'Starting...';
         startButton.disabled = true;
-        startButton.style.background = '#ff9800';
         await startCamera();
     };
     
@@ -239,19 +171,16 @@ function setupStartButton() {
 function updateStartButton(status) {
     if (!startButton) return;
     
-    switch (status) {
-        case 'success':
-            startButton.textContent = '✅ Camera Active';
-            startButton.style.background = '#4caf50';
-            setTimeout(() => {
-                startButton.style.display = 'none';
-            }, 2000);
-            break;
-        case 'error':
-            startButton.textContent = '🔄 Try Again';
-            startButton.disabled = false;
-            startButton.style.background = '#ff4444';
-            break;
+    if (status === 'success') {
+        startButton.textContent = '✅ Camera Active';
+        startButton.style.background = '#4caf50';
+        setTimeout(() => {
+            startButton.style.display = 'none';
+        }, 2000);
+    } else if (status === 'error') {
+        startButton.textContent = '🔄 Try Again';
+        startButton.disabled = false;
+        startButton.style.background = '#ff4444';
     }
 }
 
@@ -264,8 +193,6 @@ document.addEventListener('DOMContentLoaded', () => {
 // Cleanup
 window.addEventListener('beforeunload', () => {
     if (videoElement.srcObject) {
-        videoElement.srcObject.getTracks().forEach(track => {
-            track.stop();
-        });
+        videoElement.srcObject.getTracks().forEach(track => track.stop());
     }
 });
