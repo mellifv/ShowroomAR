@@ -4,43 +4,12 @@ const canvasCtx = canvasElement.getContext("2d");
 const clothingSelect = document.getElementById("clothingSelect");
 
 console.log('🚀 Try-on script loaded');
-console.log('📱 Video element:', videoElement);
-console.log('🎯 Canvas element:', canvasElement);
 
-// Mobile detection
-const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-console.log('📱 Is mobile:', isMobile);
-console.log('🔒 HTTPS:', window.location.protocol);
-console.log('🌐 User agent:', navigator.userAgent);
-
-// Test camera support
-console.log('📷 MediaDevices supported:', !!navigator.mediaDevices);
-console.log('📷 getUserMedia supported:', !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia));
-
-// Show debug info on page
-function showDebugInfo() {
-  const debugInfo = `
-    <div style="
-      background: #ff4444;
-      color: white;
-      padding: 10px;
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      z-index: 9999;
-      font-size: 12px;
-    ">
-      <strong>Debug Info:</strong><br>
-      Mobile: ${isMobile} | HTTPS: ${window.location.protocol} | 
-      MediaDevices: ${!!navigator.mediaDevices} |
-      getUserMedia: ${!!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)}
-    </div>
-  `;
-  document.body.insertAdjacentHTML('afterbegin', debugInfo);
-}
-
-showDebugInfo();
+// Remove the debug info div (it's blocking the camera view)
+setTimeout(() => {
+    const debugDiv = document.querySelector('[style*="background: #ff4444"]');
+    if (debugDiv) debugDiv.remove();
+}, 3000);
 
 const selected = JSON.parse(localStorage.getItem("selectedModel"));
 let shirtImg = new Image();
@@ -48,198 +17,175 @@ let shirtLoaded = false;
 shirtImg.src = selected ? selected.image : "shirt.png";
 shirtImg.onload = () => (shirtLoaded = true);
 
-// Change clothing safely
+// Change clothing
 clothingSelect.addEventListener("change", () => {
-  const newImg = new Image();
-  shirtLoaded = false;
-  newImg.src = clothingSelect.value;
-  newImg.onload = () => {
-    shirtImg = newImg;
-    shirtLoaded = true;
-  };
+    const newImg = new Image();
+    shirtLoaded = false;
+    newImg.src = clothingSelect.value;
+    newImg.onload = () => {
+        shirtImg = newImg;
+        shirtLoaded = true;
+    };
 });
 
 function onResults(results) {
-  canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-  canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+    if (!videoElement.srcObject) return; // Don't process if no camera
+    
+    canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+    canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
 
-  if (!shirtLoaded || !results.poseLandmarks) return;
+    if (!shirtLoaded || !results.poseLandmarks) return;
 
-  const leftShoulder = results.poseLandmarks[11];
-  const rightShoulder = results.poseLandmarks[12];
-  const leftHip = results.poseLandmarks[23];
-  const rightHip = results.poseLandmarks[24];
+    const leftShoulder = results.poseLandmarks[11];
+    const rightShoulder = results.poseLandmarks[12];
+    const leftHip = results.poseLandmarks[23];
+    const rightHip = results.poseLandmarks[24];
 
-  const shoulderCenter = {
-    x: (leftShoulder.x + rightShoulder.x) / 2,
-    y: (leftShoulder.y + rightShoulder.y) / 3,
-  };
-  const hipCenter = {
-    x: (leftHip.x + rightHip.x) / 2,
-    y: (leftHip.y + rightHip.y) / 2,
-  };
+    const shoulderCenter = {
+        x: (leftShoulder.x + rightShoulder.x) / 2,
+        y: (leftShoulder.y + rightShoulder.y) / 3,
+    };
+    const hipCenter = {
+        x: (leftHip.x + rightHip.x) / 2,
+        y: (leftHip.y + rightHip.y) / 2,
+    };
 
-  const width = Math.abs(rightShoulder.x - leftShoulder.x) * canvasElement.width * 2;
-  const height = Math.abs(hipCenter.y - shoulderCenter.y) * canvasElement.height * 1;
+    const width = Math.abs(rightShoulder.x - leftShoulder.x) * canvasElement.width * 2;
+    const height = Math.abs(hipCenter.y - shoulderCenter.y) * canvasElement.height * 1;
 
-  const x = shoulderCenter.x * canvasElement.width - width / 2;
-  const y = shoulderCenter.y * canvasElement.height - height * 0.25;
+    const x = shoulderCenter.x * canvasElement.width - width / 2;
+    const y = shoulderCenter.y * canvasElement.height - height * 0.25;
 
-  canvasCtx.drawImage(shirtImg, x, y, width, height);
+    canvasCtx.drawImage(shirtImg, x, y, width, height);
 }
 
 // Setup MediaPipe Pose
 const pose = new Pose({
-  locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5/${file}`,
+    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5/${file}`,
 });
 pose.setOptions({
-  modelComplexity: isMobile ? 0 : 1,
-  smoothLandmarks: true,
-  enableSegmentation: false,
-  minDetectionConfidence: 0.5,
-  minTrackingConfidence: 0.5,
+    modelComplexity: 0, // Simple model for mobile
+    smoothLandmarks: true,
+    enableSegmentation: false,
+    minDetectionConfidence: 0.5,
+    minTrackingConfidence: 0.5,
 });
 pose.onResults(onResults);
 
-// Test camera directly first
-async function testCamera() {
-  console.log('🔍 Testing camera access...');
-  
-  try {
-    // Test basic camera access
-    const stream = await navigator.mediaDevices.getUserMedia({ 
-      video: { 
-        facingMode: isMobile ? "environment" : "user",
-        width: { ideal: 640 },
-        height: { ideal: 480 }
-      } 
-    });
+// **MAIN CAMERA START FUNCTION**
+async function startCamera() {
+    console.log('📷 Starting camera...');
     
-    console.log('✅ Camera access granted');
-    
-    // Test if we can display the stream
-    videoElement.srcObject = stream;
-    videoElement.play().then(() => {
-      console.log('✅ Video element playing');
-    }).catch(err => {
-      console.error('❌ Video play failed:', err);
-    });
-    
-    return stream;
-    
-  } catch (err) {
-    console.error('❌ Camera test failed:', err.name, err.message);
-    showCameraError(err);
-    return null;
-  }
+    try {
+        // Request camera access
+        const stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+                facingMode: "environment", // Use back camera
+                width: { ideal: 640 },
+                height: { ideal: 480 }
+            }
+        });
+
+        console.log('✅ Camera access granted');
+        
+        // Connect stream to video element
+        videoElement.srcObject = stream;
+        
+        // Wait for video to be ready
+        await new Promise((resolve) => {
+            videoElement.onloadedmetadata = () => {
+                videoElement.play().then(resolve).catch(console.error);
+            };
+        });
+
+        console.log('✅ Video is playing');
+        
+        // Start MediaPipe processing
+        startMediaPipeProcessing();
+        
+    } catch (error) {
+        console.error('❌ Camera error:', error);
+        alert('Camera error: ' + error.message);
+    }
 }
 
-// Start everything
-async function initializeTryOn() {
-  console.log('🔄 Initializing try-on...');
-  
-  // Test camera first
-  const stream = await testCamera();
-  if (!stream) return;
-  
-  // Wait for video to be ready
-  await new Promise((resolve) => {
-    videoElement.onloadeddata = () => {
-      console.log('✅ Video data loaded');
-      resolve();
-    };
-    videoElement.onerror = (err) => {
-      console.error('❌ Video error:', err);
-      resolve();
-    };
+function startMediaPipeProcessing() {
+    console.log('🔄 Starting MediaPipe...');
     
-    // Timeout fallback
-    setTimeout(resolve, 3000);
-  });
-  
-  // Start MediaPipe
-  console.log('🔄 Starting MediaPipe...');
-  try {
     const camera = new Camera(videoElement, {
-      onFrame: async () => {
-        await pose.send({ image: videoElement });
-      },
-      width: 640,
-      height: 480
+        onFrame: async () => {
+            try {
+                await pose.send({ image: videoElement });
+            } catch (error) {
+                console.error('MediaPipe frame error:', error);
+            }
+        },
+        width: 320, // Lower resolution for mobile
+        height: 240
     });
     
-    await camera.start();
-    console.log('✅ MediaPipe started successfully');
+    camera.start().then(() => {
+        console.log('✅ MediaPipe started');
+    }).catch(error => {
+        console.error('❌ MediaPipe failed:', error);
+    });
+}
+
+// **MAKE SURE THE START BUTTON WORKS**
+function setupStartButton() {
+    const startBtn = document.createElement('button');
+    startBtn.textContent = '🎥 Start Camera';
+    startBtn.style.cssText = `
+        position: fixed;
+        top: 60px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 1000;
+        padding: 12px 20px;
+        background: #007bff;
+        color: white;
+        border: none;
+        border-radius: 25px;
+        font-size: 16px;
+        cursor: pointer;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+    `;
     
-  } catch (error) {
-    console.error('❌ MediaPipe failed:', error);
-  }
+    startBtn.onclick = async () => {
+        startBtn.textContent = 'Starting...';
+        startBtn.disabled = true;
+        await startCamera();
+        startBtn.style.display = 'none'; // Hide after starting
+    };
+    
+    document.body.appendChild(startBtn);
 }
 
-function showCameraError(error) {
-  let message = '';
-  
-  switch (error.name) {
-    case 'NotAllowedError':
-      message = '📱 Camera permission denied. Please:\n1. Allow camera access in browser settings\n2. Refresh the page\n3. Click "Allow" when prompted';
-      break;
-    case 'NotFoundError':
-      message = '📱 No camera found on this device.';
-      break;
-    case 'NotSupportedError':
-      message = '📱 Camera not supported in this browser. Try Chrome or Safari.';
-      break;
-    case 'NotReadableError':
-      message = '📱 Camera is busy. Close other apps using camera.';
-      break;
-    case 'SecurityError':
-      message = '📱 Camera blocked for security reasons. Use HTTPS.';
-      break;
-    default:
-      message = `📱 Camera error: ${error.message}`;
-  }
-  
-  alert(message);
-  console.error('Camera error details:', error);
-}
-
-// Add manual start button for testing
-function addManualStartButton() {
-  const button = document.createElement('button');
-  button.textContent = '🎥 Start Camera';
-  button.style.cssText = `
-    position: fixed;
-    top: 50px;
-    left: 10px;
-    z-index: 9999;
-    padding: 10px;
-    background: #007bff;
-    color: white;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-  `;
-  button.onclick = initializeTryOn;
-  document.body.appendChild(button);
-}
-
-// Start when page loads
+// Auto-start when page loads (with user interaction)
 document.addEventListener('DOMContentLoaded', () => {
-  console.log('📄 DOM loaded, starting initialization...');
-  addManualStartButton();
-  
-  // Auto-start after a short delay
-  setTimeout(() => {
-    initializeTryOn();
-  }, 1000);
+    console.log('📄 Page loaded');
+    setupStartButton();
+    
+    // Try auto-start after a short delay (some browsers allow this)
+    setTimeout(() => {
+        // Check if we already have camera permission
+        navigator.mediaDevices.enumerateDevices()
+            .then(devices => {
+                const hasCameraPermission = devices.some(device => 
+                    device.kind === 'videoinput' && device.label
+                );
+                if (hasCameraPermission) {
+                    console.log('🔄 Auto-starting camera (has permission)');
+                    startCamera();
+                }
+            })
+            .catch(console.error);
+    }, 1000);
 });
 
 // Cleanup
 window.addEventListener('beforeunload', () => {
-  if (videoElement.srcObject) {
-    videoElement.srcObject.getTracks().forEach(track => {
-      console.log('🛑 Stopping camera track:', track.kind);
-      track.stop();
-    });
-  }
+    if (videoElement.srcObject) {
+        videoElement.srcObject.getTracks().forEach(track => track.stop());
+    }
 });
