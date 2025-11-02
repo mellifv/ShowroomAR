@@ -26,7 +26,14 @@ function onResults(results) {
     if (!videoElement.srcObject) return;
     
     canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+    
+    // ✅ FIX: Always show the camera feed
     canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+
+    // Show debug info on canvas
+    canvasCtx.fillStyle = 'white';
+    canvasCtx.font = '16px Arial';
+    canvasCtx.fillText('Camera: Active | Pose: ' + (results.poseLandmarks ? 'Detected' : 'Searching'), 10, 30);
 
     if (!shirtLoaded || !results.poseLandmarks) return;
 
@@ -66,61 +73,102 @@ pose.setOptions({
 });
 pose.onResults(onResults);
 
-// **FLEXIBLE CAMERA START - TRIES ALL OPTIONS**
+// **FIXED CAMERA START WITH VISIBLE FEED**
 async function startCamera() {
     console.log('📷 Starting camera...');
     
-    const cameraOptions = [
-        // Try back camera first
-        { video: { facingMode: "environment" } },
-        // Try front camera
-        { video: { facingMode: "user" } },
-        // Try without any specific camera (let browser choose)
-        { video: true },
-        // Try with basic constraints
-        { video: { width: 640, height: 480 } }
-    ];
+    try {
+        // Try different camera options
+        const constraints = { 
+            video: { 
+                width: { ideal: 640 },
+                height: { ideal: 480 },
+                frameRate: { ideal: 30 }
+            } 
+        };
 
-    for (let i = 0; i < cameraOptions.length; i++) {
-        try {
-            console.log(`🔄 Trying camera option ${i + 1}:`, cameraOptions[i]);
+        console.log('🔄 Requesting camera access...');
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        console.log('✅ Camera access granted');
+        
+        // ✅ FIX: Make sure video element is visible for testing
+        videoElement.style.display = 'block';
+        videoElement.style.width = '100%';
+        videoElement.style.maxWidth = '400px';
+        videoElement.style.margin = '10px auto';
+        videoElement.style.border = '2px solid green';
+        
+        videoElement.srcObject = stream;
+        
+        // Wait for video to be ready
+        await new Promise((resolve) => {
+            videoElement.onloadedmetadata = () => {
+                console.log('✅ Video metadata loaded');
+                videoElement.play()
+                    .then(() => {
+                        console.log('✅ Video is playing');
+                        resolve();
+                    })
+                    .catch(error => {
+                        console.error('❌ Video play failed:', error);
+                        resolve();
+                    });
+            };
             
-            const stream = await navigator.mediaDevices.getUserMedia(cameraOptions[i]);
-            console.log(`✅ Camera option ${i + 1} succeeded!`);
-            
-            // Connect stream to video element
-            videoElement.srcObject = stream;
-            
-            // Wait for video to be ready
-            await new Promise((resolve) => {
-                videoElement.onloadedmetadata = () => {
-                    videoElement.play()
-                        .then(() => {
-                            console.log('✅ Video is playing');
-                            resolve();
-                        })
-                        .catch(error => {
-                            console.error('Video play failed:', error);
-                            resolve(); // Continue anyway
-                        });
-                };
-                
-                // Timeout fallback
-                setTimeout(resolve, 2000);
-            });
+            // Timeout fallback
+            setTimeout(resolve, 3000);
+        });
 
-            // Start MediaPipe processing
-            startMediaPipeProcessing();
-            return; // Success - exit the loop
-            
-        } catch (error) {
-            console.log(`❌ Camera option ${i + 1} failed:`, error.name);
-            
-            // If this is the last option, show error
-            if (i === cameraOptions.length - 1) {
-                showCameraError(error);
-            }
-        }
+        // ✅ TEST: Show raw camera feed temporarily
+        showRawCameraFeed();
+        
+        // Start MediaPipe after a short delay
+        setTimeout(startMediaPipeProcessing, 1000);
+        
+    } catch (error) {
+        console.error('❌ Camera start failed:', error);
+        showCameraError(error);
+    }
+}
+
+// ✅ NEW: Show raw camera feed for testing
+function showRawCameraFeed() {
+    const testDiv = document.createElement('div');
+    testDiv.innerHTML = `
+        <div style="
+            position: fixed;
+            top: 80px;
+            left: 10px;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            z-index: 999;
+            font-size: 12px;
+        ">
+            <div>📹 RAW CAMERA FEED:</div>
+            <video id="testVideo" autoplay muted playsinline 
+                   style="width: 150px; border: 2px solid red; margin: 5px 0;"></video>
+            <div>🎯 POSE DETECTION:</div>
+            <canvas id="testCanvas" width="150" height="100" 
+                    style="border: 2px solid blue; margin: 5px 0;"></canvas>
+        </div>
+    `;
+    document.body.appendChild(testDiv);
+    
+    // Show raw video feed
+    const testVideo = document.getElementById('testVideo');
+    const testCanvas = document.getElementById('testCanvas');
+    const testCtx = testCanvas.getContext('2d');
+    
+    if (videoElement.srcObject) {
+        testVideo.srcObject = videoElement.srcObject;
+        testVideo.play();
+        
+        // Update test canvas periodically
+        setInterval(() => {
+            testCtx.drawImage(testVideo, 0, 0, testCanvas.width, testCanvas.height);
+        }, 100);
     }
 }
 
@@ -135,8 +183,8 @@ function startMediaPipeProcessing() {
                 console.error('MediaPipe frame error:', error);
             }
         },
-        width: 320,
-        height: 240
+        width: 640,
+        height: 480
     });
     
     camera.start().then(() => {
@@ -149,28 +197,12 @@ function startMediaPipeProcessing() {
 }
 
 function showCameraError(error) {
-    let message = 'Camera error: ';
-    
-    switch (error.name) {
-        case 'NotFoundError':
-        case 'OverconstrainedError':
-            message = '📱 No camera found or camera not accessible.\n\nPlease try:\n• Using a different browser (Chrome recommended)\n• Checking if another app is using the camera\n• Restarting your phone';
-            break;
-        case 'NotAllowedError':
-            message = '📱 Camera permission denied.\n\nPlease:\n1. Allow camera access in browser settings\n2. Refresh the page\n3. Click "Allow" when prompted';
-            break;
-        case 'NotSupportedError':
-            message = '📱 Camera not supported.\n\nTry using Chrome browser instead.';
-            break;
-        default:
-            message = `📱 Camera error: ${error.message}`;
-    }
-    
+    let message = 'Camera error: ' + error.message;
     alert(message);
     updateStartButton('error');
 }
 
-// **SMART START BUTTON**
+// Start button
 let startButton = null;
 
 function setupStartButton() {
@@ -195,7 +227,7 @@ function setupStartButton() {
     `;
     
     startButton.onclick = async () => {
-        startButton.textContent = '🔍 Finding Camera...';
+        startButton.textContent = '🔍 Starting...';
         startButton.disabled = true;
         startButton.style.background = '#ff9800';
         await startCamera();
@@ -223,51 +255,16 @@ function updateStartButton(status) {
     }
 }
 
-// Check available cameras (for debugging)
-async function listCameras() {
-    try {
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const cameras = devices.filter(device => device.kind === 'videoinput');
-        console.log('📸 Available cameras:', cameras);
-        return cameras;
-    } catch (error) {
-        console.error('Error listing cameras:', error);
-        return [];
-    }
-}
-
-// Auto-detect and start
-document.addEventListener('DOMContentLoaded', async () => {
+// Initialize
+document.addEventListener('DOMContentLoaded', () => {
     console.log('📄 Page loaded');
-    
-    // List available cameras for debugging
-    await listCameras();
-    
     setupStartButton();
-    
-    // Try to auto-start if we already have permission
-    try {
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const hasCameraPermission = devices.some(device => 
-            device.kind === 'videoinput' && device.label
-        );
-        
-        if (hasCameraPermission) {
-            console.log('🔄 Auto-starting camera (previous permission detected)');
-            setTimeout(() => {
-                startButton.click();
-            }, 1000);
-        }
-    } catch (error) {
-        console.log('No previous camera permission');
-    }
 });
 
 // Cleanup
 window.addEventListener('beforeunload', () => {
     if (videoElement.srcObject) {
         videoElement.srcObject.getTracks().forEach(track => {
-            console.log('🛑 Stopping camera track');
             track.stop();
         });
     }
