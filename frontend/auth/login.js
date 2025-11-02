@@ -15,7 +15,7 @@ document.getElementById("loginForm").addEventListener("submit", async (e) => {
   try {
     console.log('Attempting login with:', { email, password: '***' });
 
-    const data = await API.login({ email, password }); // Fixed: pass object
+    const data = await API.login(email, password); // Fixed: pass object
     console.log('Login response:', data);
 
     // Save token and user info
