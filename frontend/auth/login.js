@@ -51,7 +51,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   try {
     // Test the actual backend URL, not localhost
     console.log('Testing connection to backend...');
-    const response = await fetch('https://showroomar-production.up.railway.app/api/');
+    const response = await fetch('https://showroomar-production.up.railway.app/api');
     console.log('✅ Backend is reachable. Status:', response.status);
   } catch (error) {
     console.error('❌ Cannot connect to backend:', error);
