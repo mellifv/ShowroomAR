@@ -48,4 +48,4 @@ document.getElementById("loginForm").addEventListener("submit", async (e) => {
 
 // Test API connection on page load - UPDATED VERSION
 
-});
+
