@@ -57,12 +57,19 @@ nav a.active {
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
   flex: 1;
   max-width: 600px;
+  background: #000;
 }
 
 #output_canvas {
   width: 100%;
   height: auto;
   border-radius: 15px;
+  display: block;
+}
+
+/* Hide the video element - we only use canvas */
+#input_video {
+  display: none !important;
 }
 
 /* ===== Right Panel ===== */
@@ -88,16 +95,19 @@ nav a.active {
 .control-panel label {
   font-weight: 500;
   margin-right: 0.5rem;
+  display: block;
+  margin-bottom: 0.5rem;
 }
 
 .control-panel select {
-  padding: 0.5rem 1rem;
+  padding: 0.8rem 1rem;
   border-radius: 10px;
   border: none;
   background: #e0f7ff;
   color: #001f3f;
   font-weight: 500;
   width: 100%;
+  font-size: 16px;
 }
 
 .btn-secondary {
@@ -113,6 +123,7 @@ nav a.active {
   transition: all 0.3s ease;
   text-align: center;
   width: fit-content;
+  cursor: pointer;
 }
 
 .btn-secondary:hover {
@@ -137,6 +148,7 @@ footer {
     flex-direction: column;
     text-align: center;
     gap: 2rem;
+    padding: 2rem 1rem;
   }
 
   .right-panel {
@@ -148,14 +160,8 @@ footer {
     font-size: 1.8rem;
   }
 
-  .control-panel select {
-    width: 80%;
-    font-size: 1rem;
-  }
-
-  #output_canvas {
-    width: 90%;
-    max-width: 480px;
+  .camera-wrapper {
+    max-width: 90%;
   }
 
   .btn-secondary {
@@ -168,90 +174,33 @@ footer {
     font-size: 1.5rem;
   }
 
-  .control-panel select {
-    width: 100%;
+  .camera-wrapper {
+    max-width: 95%;
   }
-
-  #output_canvas {
-    width: 95%;
+  
+  header {
+    padding: 1rem;
   }
+  
+  nav a {
+    margin: 0 0.5rem;
+    font-size: 0.9rem;
+  }
+}
 
 /* Mobile landscape optimization */
 @media (max-width: 768px) and (orientation: landscape) {
-  #videoElement, #output_canvas {
-    width: 100vw !important;
-    height: 100vh !important;
-    object-fit: cover;
+  .tryon-container {
+    flex-direction: row;
+    gap: 1rem;
+    padding: 1rem;
   }
   
-  .tryon-container {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
+  .camera-wrapper {
+    max-width: 60%;
   }
-}
-
-/* Hide instructions after 10 seconds */
-.mobile-instructions {
-  animation: fadeOut 10s forwards;
-}
-
-@keyframes fadeOut {
-  0% { opacity: 1; }
-  80% { opacity: 1; }
-  100% { opacity: 0; display: none; }
-}
-}
-/* Make canvas visible and properly sized */
-#output_canvas {
-    width: 100%;
-    max-width: 400px;
-    height: auto;
-    border: 3px solid #007bff;
-    border-radius: 10px;
-    margin: 10px auto;
-    display: block;
-    background: #000;
-}
-
-/* Show video element for testing */
-#input_video {
-    display: block !important;
-    width: 100%;
-    max-width: 300px;
-    height: auto;
-    border: 2px solid green;
-    border-radius: 5px;
-    margin: 10px auto;
-}
-
-.tryon-container {
-    text-align: center;
-    padding: 20px;
-}
-
-.controls {
-    margin: 20px 0;
-}
-
-.controls select {
-    padding: 10px;
-    font-size: 16px;
-    margin: 0 10px;
-}
-
-.buttons {
-    margin: 20px 0;
-}
-
-.buttons button {
-    padding: 12px 24px;
-    font-size: 16px;
-    background: #6c757d;
-    color: white;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
+  
+  .right-panel {
+    max-width: 35%;
+  }
 }
