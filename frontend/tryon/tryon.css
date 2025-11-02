@@ -204,3 +204,54 @@ footer {
   100% { opacity: 0; display: none; }
 }
 }
+/* Make canvas visible and properly sized */
+#output_canvas {
+    width: 100%;
+    max-width: 400px;
+    height: auto;
+    border: 3px solid #007bff;
+    border-radius: 10px;
+    margin: 10px auto;
+    display: block;
+    background: #000;
+}
+
+/* Show video element for testing */
+#input_video {
+    display: block !important;
+    width: 100%;
+    max-width: 300px;
+    height: auto;
+    border: 2px solid green;
+    border-radius: 5px;
+    margin: 10px auto;
+}
+
+.tryon-container {
+    text-align: center;
+    padding: 20px;
+}
+
+.controls {
+    margin: 20px 0;
+}
+
+.controls select {
+    padding: 10px;
+    font-size: 16px;
+    margin: 0 10px;
+}
+
+.buttons {
+    margin: 20px 0;
+}
+
+.buttons button {
+    padding: 12px 24px;
+    font-size: 16px;
+    background: #6c757d;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
