@@ -43,7 +43,6 @@ function resizeCanvasToVideo() {
 // Main drawing function
 
 function onResults(results) {
-function onResults(results) {
     if (!videoElement.srcObject) return;
 
     const { width, height } = canvasElement;
@@ -139,7 +138,7 @@ function onResults(results) {
 
         canvasCtx.drawImage(shirtImg, drawX, drawY, drawW, drawH);
         canvasCtx.restore();
-    }
+    
 }
 
 
