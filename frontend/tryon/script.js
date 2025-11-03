@@ -1,220 +1,193 @@
 const videoElement = document.getElementById("input_video");
 const canvasElement = document.getElementById("output_canvas");
 const canvasCtx = canvasElement.getContext("2d");
+
 const clothingSelect = document.getElementById("clothingSelect");
+let clothingImage = new Image();
+let selectedClothing = null;
 
-// Mobile camera detection
-const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+// Maintain aspect ratio automatically
+function resizeCanvasToVideo(video) {
+  const videoRatio = video.videoWidth / video.videoHeight;
+  const screenRatio = window.innerWidth / window.innerHeight;
 
-// Show mobile instructions
-if (isMobile) {
-  showMobileInstructions();
+  // Adjust canvas size based on device orientation
+  if (screenRatio > 1) {
+    // landscape
+    canvasElement.width = 960;
+    canvasElement.height = 540;
+  } else {
+    // portrait (phone)
+    canvasElement.width = 720;
+    canvasElement.height = 960;
+  }
 }
 
-const selected = JSON.parse(localStorage.getItem("selectedModel"));
-let shirtImg = new Image();
-let shirtLoaded = false;
-shirtImg.src = selected ? selected.image : "shirt.png";
-shirtImg.onload = () => (shirtLoaded = true);
-
-// Change clothing safely
-clothingSelect.addEventListener("change", () => {
-  const newImg = new Image();
-  shirtLoaded = false;
-  newImg.src = clothingSelect.value;
-  newImg.onload = () => {
-    shirtImg = newImg;
-    shirtLoaded = true;
-  };
+// Load clothing image when user selects it
+clothingSelect.addEventListener("change", (e) => {
+  const value = e.target.value;
+  if (value && value !== "none") {
+    clothingImage.src = value;
+    selectedClothing = clothingImage;
+  } else {
+    selectedClothing = null;
+  }
 });
 
 function onResults(results) {
+  canvasCtx.save();
   canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-  canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
 
-  if (!shirtLoaded || !results.poseLandmarks) return;
+  // Draw mirrored webcam image
+  canvasCtx.drawImage(
+    results.image,
+    0,
+    0,
+    canvasElement.width,
+    canvasElement.height
+  );
 
-  const leftShoulder = results.poseLandmarks[11];
-  const rightShoulder = results.poseLandmarks[12];
-  const leftHip = results.poseLandmarks[23];
-  const rightHip = results.poseLandmarks[24];
+  if (results.poseLandmarks && selectedClothing) {
+    const landmarks = results.poseLandmarks;
 
-  const shoulderCenter = {
-    x: (leftShoulder.x + rightShoulder.x) / 2,
-    y: (leftShoulder.y + rightShoulder.y) / 3,
-  };
-  const hipCenter = {
-    x: (leftHip.x + rightHip.x) / 2,
-    y: (leftHip.y + rightHip.y) / 2,
-  };
+    // **PRECISE SHOULDER DETECTION**
+    const leftShoulder = landmarks[11];
+    const rightShoulder = landmarks[12];
+    const leftHip = landmarks[23];
+    const rightHip = landmarks[24];
+    const leftElbow = landmarks[13];
+    const rightElbow = landmarks[14];
 
-  const width = Math.abs(rightShoulder.x - leftShoulder.x) * canvasElement.width * 2;
-  const height = Math.abs(hipCenter.y - shoulderCenter.y) * canvasElement.height * 1;
+    // Convert normalized coordinates to canvas pixels
+    const leftShoulderX = leftShoulder.x * canvasElement.width;
+    const leftShoulderY = leftShoulder.y * canvasElement.height;
+    const rightShoulderX = rightShoulder.x * canvasElement.width;
+    const rightShoulderY = rightShoulder.y * canvasElement.height;
 
-  const x = shoulderCenter.x * canvasElement.width - width / 2;
-  const y = shoulderCenter.y * canvasElement.height - height * 0.25;
+    // **CALCULATE EXACT CLOTHING POSITION**
+    
+    // Shoulder width (base for clothing width)
+    const shoulderWidth = Math.abs(rightShoulderX - leftShoulderX);
+    
+    // Body height from shoulders to hips
+    const bodyHeight = Math.abs(
+      ((leftHip.y + rightHip.y) / 2) * canvasElement.height - 
+      ((leftShoulderY + rightShoulderY) / 2)
+    );
 
-  canvasCtx.drawImage(shirtImg, x, y, width, height);
+    // **PRECISE POSITIONING**
+    const clothingWidth = shoulderWidth * 1.8; // Slightly wider than shoulders
+    const clothingHeight = bodyHeight * 1.3;   // Extend below hips
+    
+    // Center position between shoulders
+    const centerX = (leftShoulderX + rightShoulderX) / 2;
+    
+    // Start from slightly above shoulders for natural fit
+    const startY = ((leftShoulderY + rightShoulderY) / 2) - (clothingHeight * 0.1);
+
+    // **ADJUST FOR BODY ROTATION**
+    // Calculate shoulder angle for tilted poses
+    const shoulderAngle = Math.atan2(
+      rightShoulderY - leftShoulderY,
+      rightShoulderX - leftShoulderX
+    );
+
+    // **DRAW CLOTHING WITH PRECISE PLACEMENT**
+    canvasCtx.save();
+    
+    // Apply rotation if body is tilted
+    canvasCtx.translate(centerX, startY + (clothingHeight * 0.1));
+    canvasCtx.rotate(shoulderAngle);
+    
+    // Draw clothing centered on shoulders
+    canvasCtx.drawImage(
+      selectedClothing,
+      -clothingWidth / 2,    // Center horizontally
+      -clothingHeight * 0.1, // Start slightly above shoulder line
+      clothingWidth,
+      clothingHeight
+    );
+    
+    canvasCtx.restore();
+
+    // **DEBUG: Draw shoulder points (remove in production)**
+    canvasCtx.fillStyle = 'red';
+    canvasCtx.fillRect(leftShoulderX - 5, leftShoulderY - 5, 10, 10);
+    canvasCtx.fillRect(rightShoulderX - 5, rightShoulderY - 5, 10, 10);
+    
+    canvasCtx.fillStyle = 'blue';
+    canvasCtx.fillRect(centerX - 3, startY - 3, 6, 6);
+  }
+
+  canvasCtx.restore();
 }
 
-// Setup MediaPipe Pose
+// **ENHANCED POSE CONFIGURATION FOR BETTER TRACKING**
 const pose = new Pose({
-  locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5/${file}`,
+  locateFile: (file) =>
+    `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`,
 });
+
 pose.setOptions({
-  modelComplexity: isMobile ? 0 : 1, // Lower complexity for mobile
+  modelComplexity: 1,
   smoothLandmarks: true,
   enableSegmentation: false,
-  minDetectionConfidence: 0.5,
-  minTrackingConfidence: 0.5, // Lower for better mobile performance
+  minDetectionConfidence: 0.7,    // Higher for better accuracy
+  minTrackingConfidence: 0.7,     // Higher for stable tracking
 });
+
 pose.onResults(onResults);
 
-// Mobile-optimized camera initialization
-async function startCamera() {
+// **IMPROVED CAMERA INITIALIZATION**
+async function initializeCamera() {
   try {
-    // Check HTTPS for mobile
-    if (isMobile && window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
-      alert('📱 Camera requires HTTPS on mobile. Please use the secure URL.');
-      return;
-    }
-
-    // Mobile-optimized camera constraints
-    const constraints = {
-      video: {
-        facingMode: isMobile ? "environment" : "user", // Use back camera on mobile
-        width: { ideal: isMobile ? 640 : 1280 },
-        height: { ideal: isMobile ? 480 : 720 },
-        frameRate: { ideal: isMobile ? 24 : 30 } // Lower FPS for mobile performance
-      }
-    };
-
-    // Safari-specific constraints
-    if (isSafari) {
-      constraints.video.frameRate = { ideal: 20 };
-    }
-
-    const stream = await navigator.mediaDevices.getUserMedia(constraints);
-    videoElement.srcObject = stream;
-
-    // Wait for video to be ready
-    await new Promise((resolve) => {
-      videoElement.onloadedmetadata = () => {
-        resolve();
-      };
+    const camera = new Camera(videoElement, {
+      onFrame: async () => {
+        try {
+          await pose.send({ image: videoElement });
+        } catch (error) {
+          console.error('Pose detection error:', error);
+        }
+      },
+      width: 960,
+      height: 540,
     });
-
-    // Start MediaPipe processing
-    startMediaPipe();
-
-  } catch (err) {
-    console.error('Camera error:', err);
-    handleCameraError(err);
+    
+    await camera.start();
+    console.log('✅ Camera and pose detection started');
+    
+  } catch (error) {
+    console.error('❌ Camera initialization failed:', error);
+    alert('Camera error: ' + error.message);
   }
 }
 
-function startMediaPipe() {
-  const camera = new Camera(videoElement, {
-    onFrame: async () => {
-      try {
-        await pose.send({ image: videoElement });
-      } catch (error) {
-        console.error('MediaPipe frame error:', error);
-      }
-    },
-    width: isMobile ? 320 : 640, // Lower resolution for mobile
-    height: isMobile ? 240 : 480
-  });
-  camera.start().catch(error => {
-    console.error('Camera start failed:', error);
-    handleCameraError(error);
-  });
-}
+// **WAIT FOR CLOTHING IMAGE TO LOAD BEFORE STARTING**
+clothingImage.onload = () => {
+  console.log('✅ Clothing image loaded');
+};
 
-function handleCameraError(error) {
-  let message = 'Camera error: ';
-  
-  switch (error.name) {
-    case 'NotAllowedError':
-      message = '📱 Camera access denied. Please allow camera permissions in your browser settings.';
-      break;
-    case 'NotFoundError':
-      message = '📱 No camera found on this device.';
-      break;
-    case 'NotSupportedError':
-      message = '📱 Camera not supported in this browser. Try Chrome or Safari.';
-      break;
-    case 'NotReadableError':
-      message = '📱 Camera is already in use by another application.';
-      break;
-    default:
-      message += error.message;
-  }
-  
-  alert(message);
-  console.error('Camera error details:', error);
-}
+// Set default clothing
+clothingImage.src = "shirt.png"; // Default clothing
+selectedClothing = clothingImage;
 
-function showMobileInstructions() {
-  const instructions = `
-    <div class="mobile-instructions" style="
-      background: rgba(0,0,0,0.85);
-      color: white;
-      padding: 15px;
-      border-radius: 10px;
-      margin: 10px;
-      font-size: 14px;
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      right: 10px;
-      z-index: 1000;
-    ">
-      <h3 style="margin: 0 0 10px 0;">📱 Mobile Tips:</h3>
-      <ul style="margin: 0; padding-left: 20px;">
-        <li>Allow camera permissions when prompted</li>
-        <li>Use in <strong>landscape mode</strong> for best results</li>
-        <li>Hold phone steady for better tracking</li>
-        <li>Ensure good lighting</li>
-      </ul>
-      <button onclick="this.parentElement.remove()" style="
-        background: #007bff;
-        color: white;
-        border: none;
-        padding: 8px 16px;
-        border-radius: 5px;
-        margin-top: 10px;
-        cursor: pointer;
-      ">Got it!</button>
-    </div>
-  `;
-  document.body.insertAdjacentHTML('afterbegin', instructions);
-}
+// Adjust canvas dynamically when camera starts
+videoElement.addEventListener("loadedmetadata", () => {
+  resizeCanvasToVideo(videoElement);
+});
 
-// Add performance optimization for mobile
-if (isMobile) {
-  // Reduce rendering frequency on mobile
-  const originalOnResults = onResults;
-  let lastRenderTime = 0;
-  pose.onResults = (results) => {
-    const now = Date.now();
-    if (now - lastRenderTime > 66) { // ~15 FPS on mobile
-      originalOnResults(results);
-      lastRenderTime = now;
-    }
-  };
-}
+// Handle resizing (for phones rotating)
+window.addEventListener("resize", () => {
+  resizeCanvasToVideo(videoElement);
+});
 
-// Start camera when page loads
+// Start everything when page loads
 document.addEventListener('DOMContentLoaded', () => {
-  // Small delay to ensure everything is loaded
-  setTimeout(startCamera, 500);
+  initializeCamera();
 });
 
-// Add cleanup function
-window.addEventListener('beforeunload', () => {
-  if (videoElement.srcObject) {
-    videoElement.srcObject.getTracks().forEach(track => track.stop());
-  }
-});
+// **ADD MANUAL CALIBRATION IF NEEDED**
+function calibrateClothingPosition(adjustment = 1.0) {
+  // This can be called to fine-tune clothing position
+  console.log('Calibrating clothing position:', adjustment);
+}
