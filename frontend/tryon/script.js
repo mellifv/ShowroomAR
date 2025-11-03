@@ -22,6 +22,7 @@ clothingSelect.addEventListener("change", () => {
     };
 });
 
+// Keep canvas aspect ratio correct for mobile
 function resizeCanvasToVideo() {
     const vw = videoElement.videoWidth;
     const vh = videoElement.videoHeight;
@@ -39,12 +40,11 @@ function resizeCanvasToVideo() {
     }
 }
 
-// Draw function
-function onResults(results) {
+// Main drawing function
 function onResults(results) {
     if (!videoElement.srcObject) return;
 
-    // Draw camera feed as-is (no flips)
+    // Clear and draw camera feed
     canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
     canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
 
@@ -57,12 +57,13 @@ function onResults(results) {
         return;
     }
 
+    // Pose landmarks
     const leftShoulder = results.poseLandmarks[11];
     const rightShoulder = results.poseLandmarks[12];
     const leftHip = results.poseLandmarks[23];
     const rightHip = results.poseLandmarks[24];
 
-    // Flip Y coordinates so 0 = bottom, 1 = top
+    // Invert Y coordinates (fix vertical inversion)
     const invertY = (y) => 1 - y;
 
     const shoulderCenter = {
@@ -78,19 +79,19 @@ function onResults(results) {
     const dy = invertY(rightShoulder.y) - invertY(leftShoulder.y);
     const angle = Math.atan2(dy, dx);
 
-    const width = Math.abs(dx) * canvasElement.width * 1.6;
+    const width = Math.abs(dx) * canvasElement.width * 1.6;  // adjust for fit
     const height = Math.abs(hipCenter.y - shoulderCenter.y) * canvasElement.height * 1.1;
 
     const cx = shoulderCenter.x * canvasElement.width;
     const cy = shoulderCenter.y * canvasElement.height;
 
+    // Draw rotated shirt
     canvasCtx.save();
     canvasCtx.translate(cx, cy);
     canvasCtx.rotate(angle);
     canvasCtx.drawImage(shirtImg, -width / 2, -height * 0.25, width, height);
     canvasCtx.restore();
 }
-
 
 // Setup MediaPipe Pose
 const pose = new Pose({
@@ -105,7 +106,7 @@ pose.setOptions({
 });
 pose.onResults(onResults);
 
-// Camera setup
+// Camera control
 async function startCamera() {
     console.log('📷 Starting camera...');
     try {
@@ -113,8 +114,8 @@ async function startCamera() {
             video: {
                 width: { ideal: 640 },
                 height: { ideal: 480 },
-                facingMode: "user"
-            }
+                facingMode: "user",
+            },
         });
 
         console.log('✅ Camera access granted');
@@ -148,20 +149,21 @@ function startMediaPipeProcessing() {
             }
         },
         width: 640,
-        height: 480
+        height: 480,
     });
 
     camera.start().then(() => {
         console.log('✅ MediaPipe started');
         updateStartButton('success');
-    }).catch(error => {
+    }).catch((error) => {
         console.error('❌ MediaPipe failed:', error);
         updateStartButton('error');
     });
 }
 
-// Start button logic
+// Start button UI
 let startButton = null;
+
 function setupStartButton() {
     startButton = document.createElement('button');
     startButton.textContent = '🎥 Start Camera';
@@ -215,6 +217,6 @@ document.addEventListener('DOMContentLoaded', () => {
 // Cleanup
 window.addEventListener('beforeunload', () => {
     if (videoElement.srcObject) {
-        videoElement.srcObject.getTracks().forEach(track => track.stop());
+        videoElement.srcObject.getTracks().forEach((track) => track.stop());
     }
 });
