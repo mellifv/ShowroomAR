@@ -1,164 +1,198 @@
 const videoElement = document.getElementById("input_video");
 const canvasElement = document.getElementById("output_canvas");
 const canvasCtx = canvasElement.getContext("2d");
-
-const isMobile = /Mobi|Android/i.test(navigator.userAgent);
-const videoWidth = isMobile ? 480 : 960;
-const videoHeight = isMobile ? 640 : 540;
-
 const clothingSelect = document.getElementById("clothingSelect");
-let clothingImage = new Image();
-let selectedClothing = null;
 
-// Maintain aspect ratio automatically
-function resizeCanvasToVideo(video) {
-  const { videoWidth, videoHeight } = video;
-  if (videoWidth && videoHeight) {
-    const ratio = videoWidth / videoHeight;
-    let targetWidth, targetHeight;
+console.log('🚀 Try-on script loaded');
 
-    if (window.innerWidth < window.innerHeight) {
-      // portrait
-      targetWidth = window.innerWidth;
-      targetHeight = targetWidth / ratio;
-    } else {
-      // landscape
-      targetHeight = window.innerHeight;
-      targetWidth = targetHeight * ratio;
-    }
+const selected = JSON.parse(localStorage.getItem("selectedModel"));
+let shirtImg = new Image();
+let shirtLoaded = false;
+shirtImg.src = selected ? selected.image : "shirt.png";
+shirtImg.onload = () => (shirtLoaded = true);
 
-    canvasElement.width = targetWidth;
-    canvasElement.height = targetHeight;
-  }
-}
-
-// Load clothing image when user selects it
-clothingSelect.addEventListener("change", (e) => {
-  const value = e.target.value;
-  if (value && value !== "none") {
-    clothingImage.src = value;
-    selectedClothing = clothingImage;
-  } else {
-    selectedClothing = null;
-  }
+// Change clothing
+clothingSelect.addEventListener("change", () => {
+    const newImg = new Image();
+    shirtLoaded = false;
+    newImg.src = clothingSelect.value;
+    newImg.onload = () => {
+        shirtImg = newImg;
+        shirtLoaded = true;
+    };
 });
 
 function onResults(results) {
-  requestAnimationFrame(() => {
-    canvasCtx.save();
+    if (!videoElement.srcObject) return;
+    
+    // Clear and draw camera feed
     canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+    canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
 
-
-
-    if (results.poseLandmarks && selectedClothing) {
-      const landmarks = results.poseLandmarks;
-
-      const leftShoulder = landmarks[11];
-      const rightShoulder = landmarks[12];
-      const leftHip = landmarks[23];
-      const rightHip = landmarks[24];
-
-      // Convert normalized coordinates to canvas pixels
-      const leftShoulderX = leftShoulder.x * canvasElement.width;
-      const leftShoulderY = leftShoulder.y * canvasElement.height;
-      const rightShoulderX = rightShoulder.x * canvasElement.width;
-      const rightShoulderY = rightShoulder.y * canvasElement.height;
-
-      const shoulderWidth = Math.abs(rightShoulderX - leftShoulderX);
-      const bodyHeight = Math.abs(
-        ((leftHip.y + rightHip.y) / 2) * canvasElement.height -
-        ((leftShoulderY + rightShoulderY) / 2)
-      );
-
-      const clothingWidth = shoulderWidth * 1.8;
-      const clothingHeight = bodyHeight * 1.3;
-      const centerX = (leftShoulderX + rightShoulderX) / 2;
-      const startY = ((leftShoulderY + rightShoulderY) / 2) - (clothingHeight * 0.1);
-      const shoulderAngle = Math.atan2(
-        rightShoulderY - leftShoulderY,
-        rightShoulderX - leftShoulderX
-      );
-
-      // Draw clothing
-      canvasCtx.save();
-      canvasCtx.translate(centerX, startY + (clothingHeight * 0.1));
-      canvasCtx.rotate(shoulderAngle);
-      canvasCtx.drawImage(
-        selectedClothing,
-        -clothingWidth / 2,
-        -clothingHeight * 0.1,
-        clothingWidth,
-        clothingHeight
-      );
-      canvasCtx.restore();
-
-      // Debug dots (smaller for mobile)
-      canvasCtx.fillStyle = 'red';
-      canvasCtx.fillRect(leftShoulderX - 2, leftShoulderY - 2, 4, 4);
-      canvasCtx.fillRect(rightShoulderX - 2, rightShoulderY - 2, 4, 4);
+    if (!shirtLoaded || !results.poseLandmarks) {
+        // Show instruction when no pose detected
+        canvasCtx.fillStyle = 'white';
+        canvasCtx.font = '18px Arial';
+        canvasCtx.textAlign = 'center';
+        canvasCtx.fillText('Stand in front of camera', canvasElement.width/2, 50);
+        canvasCtx.fillText('to try on clothes', canvasElement.width/2, 80);
+        return;
     }
-  });
+
+    // Draw clothing on pose
+    const leftShoulder = results.poseLandmarks[11];
+    const rightShoulder = results.poseLandmarks[12];
+    const leftHip = results.poseLandmarks[23];
+    const rightHip = results.poseLandmarks[24];
+
+    const shoulderCenter = {
+        x: (leftShoulder.x + rightShoulder.x) / 2,
+        y: (leftShoulder.y + rightShoulder.y) / 3,
+    };
+    const hipCenter = {
+        x: (leftHip.x + rightHip.x) / 2,
+        y: (leftHip.y + rightHip.y) / 2,
+    };
+
+    const width = Math.abs(rightShoulder.x - leftShoulder.x) * canvasElement.width * 2;
+    const height = Math.abs(hipCenter.y - shoulderCenter.y) * canvasElement.height * 1;
+
+    const x = shoulderCenter.x * canvasElement.width - width / 2;
+    const y = shoulderCenter.y * canvasElement.height - height * 0.25;
+
+    canvasCtx.drawImage(shirtImg, x, y, width, height);
 }
 
-// Pose setup
+// Setup MediaPipe Pose
 const pose = new Pose({
-  locateFile: (file) =>
-    `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`,
+    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5/${file}`,
 });
-
 pose.setOptions({
-  modelComplexity: 1,
-  smoothLandmarks: true,
-  enableSegmentation: false,
-  minDetectionConfidence: 0.7,
-  minTrackingConfidence: 0.7,
+    modelComplexity: 0,
+    smoothLandmarks: true,
+    enableSegmentation: false,
+    minDetectionConfidence: 0.5,
+    minTrackingConfidence: 0.5,
 });
-
 pose.onResults(onResults);
 
-// Camera setup
-async function initializeCamera() {
-  try {
-    videoElement.setAttribute('playsinline', true);
+// **CLEAN CAMERA START**
+async function startCamera() {
+    console.log('📷 Starting camera...');
+    
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+            video: { 
+                width: { ideal: 640 },
+                height: { ideal: 480 }
+            } 
+        });
+
+        console.log('✅ Camera access granted');
+        
+        // Hide the video element (we only need canvas)
+        videoElement.style.display = 'none';
+        videoElement.srcObject = stream;
+        
+        // Wait for video to be ready
+        await new Promise((resolve) => {
+            videoElement.onloadedmetadata = () => {
+                videoElement.play().then(resolve).catch(resolve);
+            };
+            setTimeout(resolve, 2000);
+        });
+
+        // Start MediaPipe
+        startMediaPipeProcessing();
+        
+    } catch (error) {
+        console.error('❌ Camera start failed:', error);
+        alert('Camera error: ' + error.message);
+        updateStartButton('error');
+    }
+}
+
+function startMediaPipeProcessing() {
+    console.log('🔄 Starting MediaPipe...');
+    
     const camera = new Camera(videoElement, {
-      onFrame: async () => {
-        try {
-          await pose.send({ image: videoElement });
-        } catch (err) {
-          console.error('Pose detection error:', err);
-        }
-      },
-      width: videoWidth,
-      height: videoHeight,
-      facingMode: "user"
+        onFrame: async () => {
+            try {
+                await pose.send({ image: videoElement });
+            } catch (error) {
+                console.error('MediaPipe frame error:', error);
+            }
+        },
+        width: 640,
+        height: 480
     });
-
-    await camera.start();
-    console.log('✅ Camera and pose detection started');
-  } catch (error) {
-    console.error('❌ Camera initialization failed:', error);
-    alert('Camera error: ' + error.message);
-  }
+    
+    camera.start().then(() => {
+        console.log('✅ MediaPipe started');
+        updateStartButton('success');
+    }).catch(error => {
+        console.error('❌ MediaPipe failed:', error);
+        updateStartButton('error');
+    });
 }
 
-// Wait for clothing image
-clothingImage.onload = () => console.log('✅ Clothing image loaded');
-clothingImage.src = "shirt.png";
-selectedClothing = clothingImage;
+// **SIMPLE START BUTTON**
+let startButton = null;
 
-videoElement.addEventListener("loadedmetadata", () => {
-  resizeCanvasToVideo(videoElement);
-});
+function setupStartButton() {
+    startButton = document.createElement('button');
+    startButton.textContent = '🎥 Start Camera';
+    startButton.style.cssText = `
+        position: fixed;
+        top: 80px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 1000;
+        padding: 12px 24px;
+        background: #007bff;
+        color: white;
+        border: none;
+        border-radius: 25px;
+        font-size: 16px;
+        cursor: pointer;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        font-weight: bold;
+    `;
+    
+    startButton.onclick = async () => {
+        startButton.textContent = 'Starting...';
+        startButton.disabled = true;
+        await startCamera();
+    };
+    
+    document.body.appendChild(startButton);
+}
 
-window.addEventListener("resize", () => {
-  resizeCanvasToVideo(videoElement);
-});
+function updateStartButton(status) {
+    if (!startButton) return;
+    
+    if (status === 'success') {
+        startButton.textContent = '✅ Camera Active';
+        startButton.style.background = '#4caf50';
+        setTimeout(() => {
+            startButton.style.display = 'none';
+        }, 2000);
+    } else if (status === 'error') {
+        startButton.textContent = '🔄 Try Again';
+        startButton.disabled = false;
+        startButton.style.background = '#ff4444';
+    }
+}
 
+// Initialize
 document.addEventListener('DOMContentLoaded', () => {
-  initializeCamera();
+    console.log('📄 Page loaded');
+    setupStartButton();
 });
 
-// Optional manual calibration
-function calibrateClothingPosition(adjustment = 1.0) {
-  console.log('Calibrating clothing position:', adjustment);
-}
+// Cleanup
+window.addEventListener('beforeunload', () => {
+    if (videoElement.srcObject) {
+        videoElement.srcObject.getTracks().forEach(track => track.stop());
+    }
+});
