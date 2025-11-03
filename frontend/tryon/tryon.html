@@ -26,12 +26,17 @@
       <h2>Virtual Try-On</h2>
 
       <div class="control-panel">
-        <label for="clothingSelect">Choose an outfit:</label>
-        <select id="clothingSelect">
-          <option value="none">Choose from available products</option>
-          <!-- Products will be dynamically loaded here -->
-        </select>
-      </div>
+    <label for="clothingSelect">Choose an outfit:</label>
+    <select id="clothingSelect" disabled>
+        <option value="none">Loading products...</option>
+    </select>
+</div>
+
+<div class="selected-product-info" id="selectedProductInfo" style="display: none;">
+    <h3 id="selectedProductName"></h3>
+    <p id="selectedProductPrice"></p>
+    <p id="selectedProductCategory"></p>
+</div>
 
       <div class="products-grid" id="productsGrid">
         <!-- Products will be displayed here as cards -->
