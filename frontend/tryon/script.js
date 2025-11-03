@@ -22,24 +22,41 @@ clothingSelect.addEventListener("change", () => {
     };
 });
 
+function resizeCanvasToVideo() {
+    const vw = videoElement.videoWidth;
+    const vh = videoElement.videoHeight;
+    if (vw && vh) {
+        const aspect = vw / vh;
+        const screenAspect = window.innerWidth / window.innerHeight;
+
+        if (aspect > screenAspect) {
+            canvasElement.width = window.innerWidth;
+            canvasElement.height = window.innerWidth / aspect;
+        } else {
+            canvasElement.height = window.innerHeight;
+            canvasElement.width = window.innerHeight * aspect;
+        }
+    }
+}
+
+// Draw function
 function onResults(results) {
     if (!videoElement.srcObject) return;
-    
+
     // Clear and draw camera feed
     canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
     canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
 
     if (!shirtLoaded || !results.poseLandmarks) {
-        // Show instruction when no pose detected
         canvasCtx.fillStyle = 'white';
         canvasCtx.font = '18px Arial';
         canvasCtx.textAlign = 'center';
-        canvasCtx.fillText('Stand in front of camera', canvasElement.width/2, 50);
-        canvasCtx.fillText('to try on clothes', canvasElement.width/2, 80);
+        canvasCtx.fillText('Stand in front of camera', canvasElement.width / 2, 50);
+        canvasCtx.fillText('to try on clothes', canvasElement.width / 2, 80);
         return;
     }
 
-    // Draw clothing on pose
+    // Pose landmarks
     const leftShoulder = results.poseLandmarks[11];
     const rightShoulder = results.poseLandmarks[12];
     const leftHip = results.poseLandmarks[23];
@@ -47,20 +64,29 @@ function onResults(results) {
 
     const shoulderCenter = {
         x: (leftShoulder.x + rightShoulder.x) / 2,
-        y: (leftShoulder.y + rightShoulder.y) / 3,
+        y: (leftShoulder.y + rightShoulder.y) / 2,
     };
     const hipCenter = {
         x: (leftHip.x + rightHip.x) / 2,
         y: (leftHip.y + rightHip.y) / 2,
     };
 
-    const width = Math.abs(rightShoulder.x - leftShoulder.x) * canvasElement.width * 2;
-    const height = Math.abs(hipCenter.y - shoulderCenter.y) * canvasElement.height * 1;
+    // Rotation between shoulders
+    const dx = rightShoulder.x - leftShoulder.x;
+    const dy = rightShoulder.y - leftShoulder.y;
+    const angle = Math.atan2(dy, dx);
 
-    const x = shoulderCenter.x * canvasElement.width - width / 2;
-    const y = shoulderCenter.y * canvasElement.height - height * 0.25;
+    const width = Math.abs(dx) * canvasElement.width * 1.6; // adjusted scaling
+    const height = Math.abs(hipCenter.y - shoulderCenter.y) * canvasElement.height * 1.1;
 
-    canvasCtx.drawImage(shirtImg, x, y, width, height);
+    const cx = shoulderCenter.x * canvasElement.width;
+    const cy = shoulderCenter.y * canvasElement.height;
+
+    canvasCtx.save();
+    canvasCtx.translate(cx, cy);
+    canvasCtx.rotate(angle);
+    canvasCtx.drawImage(shirtImg, -width / 2, -height * 0.25, width, height);
+    canvasCtx.restore();
 }
 
 // Setup MediaPipe Pose
@@ -76,35 +102,31 @@ pose.setOptions({
 });
 pose.onResults(onResults);
 
-// **CLEAN CAMERA START**
+// Camera setup
 async function startCamera() {
     console.log('📷 Starting camera...');
-    
     try {
         const stream = await navigator.mediaDevices.getUserMedia({
-            video: { 
+            video: {
                 width: { ideal: 640 },
-                height: { ideal: 480 }
-            } 
+                height: { ideal: 480 },
+                facingMode: "user"
+            }
         });
 
         console.log('✅ Camera access granted');
-        
-        // Hide the video element (we only need canvas)
         videoElement.style.display = 'none';
         videoElement.srcObject = stream;
-        
-        // Wait for video to be ready
+
         await new Promise((resolve) => {
             videoElement.onloadedmetadata = () => {
+                resizeCanvasToVideo();
                 videoElement.play().then(resolve).catch(resolve);
             };
             setTimeout(resolve, 2000);
         });
 
-        // Start MediaPipe
         startMediaPipeProcessing();
-        
     } catch (error) {
         console.error('❌ Camera start failed:', error);
         alert('Camera error: ' + error.message);
@@ -114,7 +136,6 @@ async function startCamera() {
 
 function startMediaPipeProcessing() {
     console.log('🔄 Starting MediaPipe...');
-    
     const camera = new Camera(videoElement, {
         onFrame: async () => {
             try {
@@ -126,7 +147,7 @@ function startMediaPipeProcessing() {
         width: 640,
         height: 480
     });
-    
+
     camera.start().then(() => {
         console.log('✅ MediaPipe started');
         updateStartButton('success');
@@ -136,9 +157,8 @@ function startMediaPipeProcessing() {
     });
 }
 
-// **SIMPLE START BUTTON**
+// Start button logic
 let startButton = null;
-
 function setupStartButton() {
     startButton = document.createElement('button');
     startButton.textContent = '🎥 Start Camera';
@@ -158,19 +178,18 @@ function setupStartButton() {
         box-shadow: 0 4px 15px rgba(0,0,0,0.3);
         font-weight: bold;
     `;
-    
+
     startButton.onclick = async () => {
         startButton.textContent = 'Starting...';
         startButton.disabled = true;
         await startCamera();
     };
-    
+
     document.body.appendChild(startButton);
 }
 
 function updateStartButton(status) {
     if (!startButton) return;
-    
     if (status === 'success') {
         startButton.textContent = '✅ Camera Active';
         startButton.style.background = '#4caf50';
