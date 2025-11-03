@@ -4,7 +4,7 @@ const canvasCtx = canvasElement.getContext("2d");
 const clothingSelect = document.getElementById("clothingSelect");
 
 // Use your actual API URL here
-const API_BASE = "https://showroomar-production.up.railway.app/api";
+const API_BASE_URL = "https://showroomar-production.up.railway.app/api";
 
 let products = [];
 let selected = null;
