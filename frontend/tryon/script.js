@@ -89,7 +89,6 @@ document.getElementById('clothingSelect').addEventListener('change', function(e)
 loadProductsForTryOn();
 console.log('🚀 Try-on script loaded');
 
-const selected = JSON.parse(localStorage.getItem("selectedModel"));
 let shirtImg = new Image();
 let shirtLoaded = false;
 shirtImg.src = selected ? selected.image : "shirt.png";
