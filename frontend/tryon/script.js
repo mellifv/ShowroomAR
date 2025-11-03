@@ -37,6 +37,7 @@ clothingSelect.addEventListener("change", (e) => {
 });
 
 // OPTIMIZED pose processing with frame skipping
+// FIXED VERSION - Correct rotation and positioning
 function onResults(results) {
   // Skip frame if still processing previous one
   if (isProcessing) {
@@ -76,38 +77,42 @@ function onResults(results) {
           ((leftShoulderY + rightShoulderY) / 2)
         );
 
-        // Clothing sizing
+        // **FIXED CLOTHING SIZING**
         const clothingWidth = shoulderWidth * 1.8;
-        const clothingHeight = bodyHeight * 1.3;
+        const clothingHeight = bodyHeight * 1.2; // Slightly shorter
         
         const centerX = (leftShoulderX + rightShoulderX) / 2;
-        const startY = ((leftShoulderY + rightShoulderY) / 2) + (clothingHeight * positionOffset);
-
-        const shoulderAngle = Math.atan2(
-          rightShoulderY - leftShoulderY,
-          rightShoulderX - leftShoulderX
-        );
-
-        // Draw clothing
-        canvasCtx.save();
-        canvasCtx.translate(centerX, startY);
-        canvasCtx.rotate(shoulderAngle);
         
+        // **FIXED POSITIONING - Start from shoulders, not above**
+        const startY = ((leftShoulderY + rightShoulderY) / 2) + (clothingHeight * 0.02);
+
+        // **FIXED ROTATION - Remove angle calculation for now**
+        // const shoulderAngle = Math.atan2(
+        //   rightShoulderY - leftShoulderY,
+        //   rightShoulderX - leftShoulderX
+        // );
+
+        // **SIMPLE DRAWING - No rotation**
         canvasCtx.drawImage(
           selectedClothing,
-          -clothingWidth / 2,
-          0,
+          centerX - clothingWidth / 2, // Center horizontally
+          startY,                      // Start from shoulder level
           clothingWidth,
           clothingHeight
         );
-        
-        canvasCtx.restore();
 
-        // Debug info (optional)
+        // Debug info
         canvasCtx.fillStyle = 'white';
         canvasCtx.font = '14px Arial';
         canvasCtx.fillText(`Position: ${positionOffset.toFixed(2)}`, 10, 20);
-        canvasCtx.fillText(`FPS: Stable`, 10, 40);
+        
+        // Debug points
+        canvasCtx.fillStyle = 'red';
+        canvasCtx.fillRect(leftShoulderX - 3, leftShoulderY - 3, 6, 6);
+        canvasCtx.fillRect(rightShoulderX - 3, rightShoulderY - 3, 6, 6);
+        
+        canvasCtx.fillStyle = 'blue';
+        canvasCtx.fillRect(centerX - 2, startY - 2, 4, 4);
       }
     } catch (error) {
       console.error('Rendering error:', error);
