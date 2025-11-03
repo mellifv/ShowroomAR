@@ -2,13 +2,33 @@ const videoElement = document.getElementById("input_video");
 const canvasElement = document.getElementById("output_canvas");
 const canvasCtx = canvasElement.getContext("2d");
 const clothingSelect = document.getElementById("clothingSelect");
+// Update this with your actual production API URL
+
 let products = [];
-let selected = null;
+let selected = null; // Declare once at the top
+
+// Load any previously selected model from localStorage
+function loadSavedSelection() {
+    const saved = localStorage.getItem("selectedModel");
+    if (saved) {
+        selected = JSON.parse(saved);
+        // If there's a saved selection, load it
+        if (selected && selected.image) {
+            shirtImg.src = selected.image;
+            shirtImg.onload = () => {
+                shirtLoaded = true;
+                updateSelectedProductInfo(selected);
+                // Also update the dropdown to show the selected item
+                document.getElementById('clothingSelect').value = selected._id;
+            };
+        }
+    }
+}
+
 // Add this function to load products from your API
-// Function to load products from your API
 async function loadProductsForTryOn() {
     try {
-        select = document.getElementById('clothingSelect');
+        const select = document.getElementById('clothingSelect');
         select.innerHTML = '<option value="none">Loading products...</option>';
         
         const response = await fetch(`${API_BASE}/products`);
@@ -16,41 +36,13 @@ async function loadProductsForTryOn() {
         
         populateClothingSelect();
         select.disabled = false;
+        
+        // After loading products, load any saved selection
+        loadSavedSelection();
     } catch (error) {
         console.error('Error loading products:', error);
         const select = document.getElementById('clothingSelect');
         select.innerHTML = '<option value="none">Error loading products</option>';
-    }
-}
-
-// Function to populate the dropdown select with product names only
-function populateClothingSelect() {
-    const select = document.getElementById('clothingSelect');
-    select.innerHTML = '<option value="none">Select a product...</option>';
-    
-    products.forEach(product => {
-        const option = document.createElement('option');
-        option.value = product._id; // Use product ID as value
-        option.textContent = product.name; // Only show product name
-        option.setAttribute('data-product', JSON.stringify(product));
-        select.appendChild(option);
-    });
-}
-
-// Function to update the selected product info display
-function updateSelectedProductInfo(product) {
-    const infoDiv = document.getElementById('selectedProductInfo');
-    const nameElement = document.getElementById('selectedProductName');
-    const priceElement = document.getElementById('selectedProductPrice');
-    const categoryElement = document.getElementById('selectedProductCategory');
-    
-    if (product) {
-        nameElement.textContent = product.name;
-        priceElement.textContent = `Price: $${product.price}`;
-        categoryElement.textContent = `Category: ${product.category}`;
-        infoDiv.style.display = 'block';
-    } else {
-        infoDiv.style.display = 'none';
     }
 }
 
@@ -59,6 +51,9 @@ function selectProduct(productId) {
     const product = products.find(p => p._id === productId);
     if (product) {
         selected = product;
+        // Save to localStorage
+        localStorage.setItem("selectedModel", JSON.stringify(product));
+        
         shirtImg.src = product.image;
         shirtImg.onload = () => {
             shirtLoaded = true;
@@ -70,6 +65,7 @@ function selectProduct(productId) {
             alert('Error loading product image. Please try another product.');
             shirtLoaded = false;
             selected = null;
+            localStorage.removeItem("selectedModel");
             updateSelectedProductInfo(null);
         };
     }
@@ -80,6 +76,7 @@ document.getElementById('clothingSelect').addEventListener('change', function(e)
     if (e.target.value === 'none') {
         selected = null;
         shirtLoaded = false;
+        localStorage.removeItem("selectedModel");
         updateSelectedProductInfo(null);
         return;
     }
