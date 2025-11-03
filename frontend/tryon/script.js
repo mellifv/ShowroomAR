@@ -43,6 +43,7 @@ function resizeCanvasToVideo() {
 // Main drawing function
 
 function onResults(results) {
+function onResults(results) {
     if (!videoElement.srcObject) return;
 
     const { width, height } = canvasElement;
@@ -74,6 +75,8 @@ function onResults(results) {
     const RH = pxMirrored(LM[24]);
     const LK = pxMirrored(LM[25]); // knees
     const RK = pxMirrored(LM[26]);
+    const LA = pxMirrored(LM[27]); // ankles
+    const RA = pxMirrored(LM[28]);
 
     const itemName = (
       selected?.name ||
@@ -81,8 +84,8 @@ function onResults(results) {
       selected?.title ||
       selected?.image || ""
     ).toLowerCase();
-    const isBottom = /trouser|pant|jean|short/.test(itemName);
-
+    const isBottom = /trouser|pant|jean|short|bottom|legging/.test(itemName);
+    const isShort = /short/.test(itemName);
 
     if (!isBottom) {
         // --- SHIRT / JACKET ---
@@ -107,26 +110,37 @@ function onResults(results) {
         // --- TROUSERS / SHORTS ---
         const hipMid = { x: (LH.x + RH.x) / 2, y: (LH.y + RH.y) / 2 };
         const kneeMid = { x: (LK.x + RK.x) / 2, y: (LK.y + RK.y) / 2 };
+        const ankleMid = { x: (LA.x + RA.x) / 2, y: (LA.y + RA.y) / 2 };
+        
         const waistWidth = Math.hypot(RH.x - LH.x, RH.y - LH.y);
-        const legHeight = Math.abs(kneeMid.y - hipMid.y);
+        const legHeight = Math.abs(ankleMid.y - hipMid.y);
         const angle = Math.atan2(RH.y - LH.y, RH.x - LH.x);
 
         canvasCtx.save();
         canvasCtx.translate(hipMid.x, hipMid.y);
         canvasCtx.rotate(angle);
 
-        const drawW = waistWidth * 1.6;
-        const drawH = Math.max(20, legHeight * 2.5);
-        const drawX = -drawW / 2;
-        const drawY = 0; 
+        // Calculate dimensions based on whether it's shorts or trousers
+        let drawW, drawH, drawY;
+        
+        if (isShort) {
+            // For shorts - extend to just below knees
+            drawW = waistWidth * 1.8; // Wider for shorts
+            drawH = Math.max(30, Math.abs(kneeMid.y - hipMid.y) * 1.2); // Shorter length
+            drawY = -drawH * 0.1; // Position slightly above hips for better fit
+        } else {
+            // For trousers/pants - extend to ankles
+            drawW = waistWidth * 1.7; // Slightly narrower than shorts
+            drawH = Math.max(40, legHeight * 1.4); // Longer length
+            drawY = -drawH * 0.15; // Position at hips with slight overlap
+        }
 
+        const drawX = -drawW / 2;
 
         canvasCtx.drawImage(shirtImg, drawX, drawY, drawW, drawH);
         canvasCtx.restore();
     }
 }
-
-
 
 
 // Setup MediaPipe Pose
