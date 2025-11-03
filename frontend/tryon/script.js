@@ -41,9 +41,10 @@ function resizeCanvasToVideo() {
 
 // Draw function
 function onResults(results) {
+function onResults(results) {
     if (!videoElement.srcObject) return;
 
-    // Clear and draw camera feed
+    // Draw camera feed as-is (no flips)
     canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
     canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
 
@@ -56,27 +57,28 @@ function onResults(results) {
         return;
     }
 
-    // Pose landmarks
     const leftShoulder = results.poseLandmarks[11];
     const rightShoulder = results.poseLandmarks[12];
     const leftHip = results.poseLandmarks[23];
     const rightHip = results.poseLandmarks[24];
 
+    // Flip Y coordinates so 0 = bottom, 1 = top
+    const invertY = (y) => 1 - y;
+
     const shoulderCenter = {
         x: (leftShoulder.x + rightShoulder.x) / 2,
-        y: (leftShoulder.y + rightShoulder.y) / 2,
+        y: (invertY(leftShoulder.y) + invertY(rightShoulder.y)) / 2,
     };
     const hipCenter = {
         x: (leftHip.x + rightHip.x) / 2,
-        y: (leftHip.y + rightHip.y) / 2,
+        y: (invertY(leftHip.y) + invertY(rightHip.y)) / 2,
     };
 
-    // Rotation between shoulders
     const dx = rightShoulder.x - leftShoulder.x;
-    const dy = rightShoulder.y - leftShoulder.y;
+    const dy = invertY(rightShoulder.y) - invertY(leftShoulder.y);
     const angle = Math.atan2(dy, dx);
 
-    const width = Math.abs(dx) * canvasElement.width * 1.6; // adjusted scaling
+    const width = Math.abs(dx) * canvasElement.width * 1.6;
     const height = Math.abs(hipCenter.y - shoulderCenter.y) * canvasElement.height * 1.1;
 
     const cx = shoulderCenter.x * canvasElement.width;
@@ -88,6 +90,7 @@ function onResults(results) {
     canvasCtx.drawImage(shirtImg, -width / 2, -height * 0.25, width, height);
     canvasCtx.restore();
 }
+
 
 // Setup MediaPipe Pose
 const pose = new Pose({
