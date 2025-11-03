@@ -6,6 +6,9 @@ const clothingSelect = document.getElementById("clothingSelect");
 let clothingImage = new Image();
 let selectedClothing = null;
 
+// Position adjustment variable
+let positionOffset = 0.05; // Default starting position
+
 // Maintain aspect ratio automatically
 function resizeCanvasToVideo(video) {
   const videoRatio = video.videoWidth / video.videoHeight;
@@ -71,10 +74,8 @@ function onResults(results) {
     
     const centerX = (leftShoulderX + rightShoulderX) / 2;
     
-    // **FINE-TUNED POSITIONING - TRY DIFFERENT VALUES**
-    const verticalOffset = clothingHeight * 0.05; // Adjust this value
+    // **FINE-TUNED POSITIONING - USES positionOffset VARIABLE**
     const startY = ((leftShoulderY + rightShoulderY) / 2) + (clothingHeight * positionOffset);
-
 
     const shoulderAngle = Math.atan2(
       rightShoulderY - leftShoulderY,
@@ -109,18 +110,11 @@ function onResults(results) {
     canvasCtx.moveTo(centerX - 50, startY);
     canvasCtx.lineTo(centerX + 50, startY);
     canvasCtx.stroke();
-  }
-
-  canvasCtx.restore();
-}
-
-    // **DEBUG: Draw shoulder points (remove in production)**
-    canvasCtx.fillStyle = 'red';
-    canvasCtx.fillRect(leftShoulderX - 5, leftShoulderY - 5, 10, 10);
-    canvasCtx.fillRect(rightShoulderX - 5, rightShoulderY - 5, 10, 10);
     
-    canvasCtx.fillStyle = 'blue';
-    canvasCtx.fillRect(centerX - 3, startY - 3, 6, 6);
+    // Show current offset value on screen
+    canvasCtx.fillStyle = 'white';
+    canvasCtx.font = '16px Arial';
+    canvasCtx.fillText(`Position: ${positionOffset.toFixed(2)}`, 10, 30);
   }
 
   canvasCtx.restore();
@@ -141,6 +135,38 @@ pose.setOptions({
 });
 
 pose.onResults(onResults);
+
+// **POSITION ADJUSTMENT FUNCTIONS**
+function adjustPosition(change) {
+  positionOffset += change;
+  console.log('Position offset:', positionOffset);
+  
+  // Update the display if it exists
+  const display = document.getElementById('positionDisplay');
+  if (display) {
+    display.textContent = positionOffset.toFixed(2);
+  }
+}
+
+function resetPosition() {
+  positionOffset = 0.05;
+  console.log('Position reset to:', positionOffset);
+}
+
+// **ADD POSITION CONTROLS**
+function addPositionControls() {
+  const controls = document.createElement('div');
+  controls.innerHTML = `
+    <div style="position: fixed; top: 10px; left: 10px; background: rgba(0,0,0,0.8); color: white; padding: 10px; z-index: 1000; border-radius: 10px;">
+      <div style="margin-bottom: 8px; font-weight: bold;">🎯 Position Adjust:</div>
+      <div style="margin-bottom: 5px;">Current: <span id="positionDisplay">${positionOffset.toFixed(2)}</span></div>
+      <button onclick="adjustPosition(-0.05)" style="margin: 2px; padding: 8px 12px; background: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer;">⬆️ Higher</button>
+      <button onclick="adjustPosition(0.05)" style="margin: 2px; padding: 8px 12px; background: #2196F3; color: white; border: none; border-radius: 5px; cursor: pointer;">⬇️ Lower</button>
+      <button onclick="resetPosition()" style="margin: 2px; padding: 8px 12px; background: #ff9800; color: white; border: none; border-radius: 5px; cursor: pointer;">🔄 Reset</button>
+    </div>
+  `;
+  document.body.appendChild(controls);
+}
 
 // **IMPROVED CAMERA INITIALIZATION**
 async function initializeCamera() {
@@ -188,31 +214,17 @@ window.addEventListener("resize", () => {
 // Start everything when page loads
 document.addEventListener('DOMContentLoaded', () => {
   initializeCamera();
+  addPositionControls(); // Add the adjustment controls
 });
 
-// **ADD MANUAL CALIBRATION IF NEEDED**
-function calibrateClothingPosition(adjustment = 1.0) {
-  // This can be called to fine-tune clothing position
-  console.log('Calibrating clothing position:', adjustment);
+// **QUICK POSITION PRESETS**
+function setPositionPreset(preset) {
+  const presets = {
+    high: -0.05,    // Higher on body
+    medium: 0.05,   // Medium (default)
+    low: 0.15       // Lower on body
+  };
+  
+  positionOffset = presets[preset] || 0.05;
+  console.log(`Position set to ${preset}: ${positionOffset}`);
 }
-
-// Temporary: Add position adjustment buttons
-function addPositionControls() {
-  const controls = document.createElement('div');
-  controls.innerHTML = `
-    <div style="position: fixed; top: 10px; left: 10px; background: rgba(0,0,0,0.8); color: white; padding: 10px; z-index: 1000;">
-      <div>Position Adjust:</div>
-      <button onclick="adjustPosition(-0.05)">⬆️ Higher</button>
-      <button onclick="adjustPosition(0.05)">⬇️ Lower</button>
-    </div>
-  `;
-  document.body.appendChild(controls);
-}
-
-let positionOffset = 0;
-function adjustPosition(change) {
-  positionOffset += change;
-  console.log('Position offset:', positionOffset);
-}
-
-// Use in your onResults function:
