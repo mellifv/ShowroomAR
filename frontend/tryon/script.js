@@ -3,6 +3,7 @@ const canvasElement = document.getElementById("output_canvas");
 const canvasCtx = canvasElement.getContext("2d");
 const clothingSelect = document.getElementById("clothingSelect");
 // Update this with your actual production API URL
+import { API } from "../js/api.js";
 
 let products = [];
 let selected = null; // Declare once at the top
@@ -31,7 +32,7 @@ async function loadProductsForTryOn() {
         const select = document.getElementById('clothingSelect');
         select.innerHTML = '<option value="none">Loading products...</option>';
         
-        const response = await fetch(`${API_BASE}/products`);
+        const response = await fetch(`${API.baseUrl}/products`);
         products = await response.json();
         
         populateClothingSelect();
@@ -88,7 +89,7 @@ document.getElementById('clothingSelect').addEventListener('change', function(e)
 // Call this function when the page loads
 loadProductsForTryOn();
 console.log('🚀 Try-on script loaded');
-
+const savedSelected = JSON.parse(localStorage.getItem("selectedModel"));
 let shirtImg = new Image();
 let shirtLoaded = false;
 shirtImg.src = selected ? selected.image : "shirt.png";
