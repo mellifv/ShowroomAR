@@ -77,7 +77,7 @@ function onResults(results) {
 
     // **PRECISE POSITIONING**
     const clothingWidth = shoulderWidth * 1.2; // Slightly wider than shoulders
-    const clothingHeight = bodyHeight * 1.5;   // Extend below hips
+    const clothingHeight = bodyHeight * 2;   // Extend below hips
     
     // Center position between shoulders
     const centerX = (leftShoulderX + rightShoulderX) / 2;
