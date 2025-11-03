@@ -2,7 +2,88 @@ const videoElement = document.getElementById("input_video");
 const canvasElement = document.getElementById("output_canvas");
 const canvasCtx = canvasElement.getContext("2d");
 const clothingSelect = document.getElementById("clothingSelect");
+let products = [];
+let selected = null;
+// Add this function to load products from your API
+async function loadProductsForTryOn() {
+    try {
+        const response = await fetch(`${API_BASE}/products`);
+        products = await response.json();
+        populateClothingSelect();
+    } catch (error) {
+        console.error('Error loading products:', error);
+        document.getElementById('clothingSelect').innerHTML = 
+            '<option value="none">Error loading products</option>';
+    }
+}
 
+// Function to populate the dropdown select with product names only
+function populateClothingSelect() {
+    const select = document.getElementById('clothingSelect');
+    select.innerHTML = '<option value="none">Select a product...</option>';
+    
+    products.forEach(product => {
+        const option = document.createElement('option');
+        option.value = product._id; // Use product ID as value
+        option.textContent = product.name; // Only show product name
+        option.setAttribute('data-product', JSON.stringify(product));
+        select.appendChild(option);
+    });
+}
+
+// Function to update the selected product info display
+function updateSelectedProductInfo(product) {
+    const infoDiv = document.getElementById('selectedProductInfo');
+    const nameElement = document.getElementById('selectedProductName');
+    const priceElement = document.getElementById('selectedProductPrice');
+    const categoryElement = document.getElementById('selectedProductCategory');
+    
+    if (product) {
+        nameElement.textContent = product.name;
+        priceElement.textContent = `Price: $${product.price}`;
+        categoryElement.textContent = `Category: ${product.category}`;
+        infoDiv.style.display = 'block';
+    } else {
+        infoDiv.style.display = 'none';
+    }
+}
+
+// Function to handle product selection
+function selectProduct(productId) {
+    const product = products.find(p => p._id === productId);
+    if (product) {
+        selected = product;
+        shirtImg.src = product.image;
+        shirtImg.onload = () => {
+            shirtLoaded = true;
+            updateSelectedProductInfo(product);
+            console.log(`Loaded: ${product.name}`);
+        };
+        shirtImg.onerror = () => {
+            console.error('Error loading product image:', product.image);
+            alert('Error loading product image. Please try another product.');
+            shirtLoaded = false;
+            selected = null;
+            updateSelectedProductInfo(null);
+        };
+    }
+}
+
+// Update the dropdown change event listener
+document.getElementById('clothingSelect').addEventListener('change', function(e) {
+    if (e.target.value === 'none') {
+        selected = null;
+        shirtLoaded = false;
+        updateSelectedProductInfo(null);
+        return;
+    }
+    
+    const productId = e.target.value;
+    selectProduct(productId);
+});
+
+// Call this function when the page loads
+loadProductsForTryOn();
 console.log('🚀 Try-on script loaded');
 
 const selected = JSON.parse(localStorage.getItem("selectedModel"));
