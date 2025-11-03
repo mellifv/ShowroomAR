@@ -44,52 +44,51 @@ function resizeCanvasToVideo() {
 function onResults(results) {
     if (!videoElement.srcObject) return;
 
-    // Clear and draw camera feed
-    canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-    canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+    const { width, height } = canvasElement;
+    canvasCtx.save();
+    canvasCtx.clearRect(0, 0, width, height);
+
+    // Mirror horizontally (selfie-style)
+    canvasCtx.translate(width, 0);
+    canvasCtx.scale(-1, 1);
+    canvasCtx.drawImage(results.image, 0, 0, width, height);
+    canvasCtx.restore();
 
     if (!shirtLoaded || !results.poseLandmarks) {
         canvasCtx.fillStyle = 'white';
         canvasCtx.font = '18px Arial';
         canvasCtx.textAlign = 'center';
-        canvasCtx.fillText('Stand in front of camera', canvasElement.width / 2, 50);
-        canvasCtx.fillText('to try on clothes', canvasElement.width / 2, 80);
+        canvasCtx.fillText('Stand in front of camera', width / 2, 50);
+        canvasCtx.fillText('to try on clothes', width / 2, 80);
         return;
     }
 
-    // Pose landmarks
+    // Use correct orientation
     const leftShoulder = results.poseLandmarks[11];
     const rightShoulder = results.poseLandmarks[12];
     const leftHip = results.poseLandmarks[23];
     const rightHip = results.poseLandmarks[24];
 
-    // Invert Y coordinates (fix vertical inversion)
-    const invertY = (y) => 1 - y;
-
     const shoulderCenter = {
         x: (leftShoulder.x + rightShoulder.x) / 2,
-        y: (invertY(leftShoulder.y) + invertY(rightShoulder.y)) / 2,
+        y: (leftShoulder.y + rightShoulder.y) / 2,
     };
     const hipCenter = {
         x: (leftHip.x + rightHip.x) / 2,
-        y: (invertY(leftHip.y) + invertY(rightHip.y)) / 2,
+        y: (leftHip.y + rightHip.y) / 2,
     };
 
-    const dx = rightShoulder.x - leftShoulder.x;
-    const dy = invertY(rightShoulder.y) - invertY(leftShoulder.y);
-    const angle = Math.atan2(dy, dx);
+    const shirtWidth = Math.abs(rightShoulder.x - leftShoulder.x) * width * 2;
+    const shirtHeight = Math.abs(hipCenter.y - shoulderCenter.y) * height * 1.2;
 
-    const width = Math.abs(dx) * canvasElement.width * 1.6;  // adjust for fit
-    const height = Math.abs(hipCenter.y - shoulderCenter.y) * canvasElement.height * 1.1;
+    // Fix vertical inversion: y coordinate recalculated properly
+    const x = (1 - shoulderCenter.x) * width - shirtWidth / 2;
+    const y = shoulderCenter.y * height - shirtHeight * 0.2;
 
-    const cx = shoulderCenter.x * canvasElement.width;
-    const cy = shoulderCenter.y * canvasElement.height;
-
-    // Draw rotated shirt
     canvasCtx.save();
-    canvasCtx.translate(cx, cy);
-    canvasCtx.rotate(angle);
-    canvasCtx.drawImage(shirtImg, -width / 2, -height * 0.25, width, height);
+    canvasCtx.translate(width, 0);
+    canvasCtx.scale(-1, 1);
+    canvasCtx.drawImage(shirtImg, x, y, shirtWidth, shirtHeight);
     canvasCtx.restore();
 }
 
