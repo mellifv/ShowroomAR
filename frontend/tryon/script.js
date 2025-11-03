@@ -75,7 +75,6 @@ function onResults(results) {
     const LK = pxMirrored(LM[25]); // knees
     const RK = pxMirrored(LM[26]);
 
-    const itemName = (selected?.name || "").toLowerCase();
     const itemName = (
       selected?.name ||
       selected?.product_name ||
