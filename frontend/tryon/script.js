@@ -41,7 +41,7 @@ function resizeCanvasToVideo() {
 }
 
 // Main drawing function
-function onResults(results) {
+
 function onResults(results) {
     if (!videoElement.srcObject) return;
 
