@@ -140,7 +140,7 @@ function onResults(results) {
         canvasCtx.restore();
     
 }
-
+}
 
 // Setup MediaPipe Pose
 const pose = new Pose({
