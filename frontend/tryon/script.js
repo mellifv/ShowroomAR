@@ -2,11 +2,31 @@ const videoElement = document.getElementById("input_video");
 const canvasElement = document.getElementById("output_canvas");
 const canvasCtx = canvasElement.getContext("2d");
 const clothingSelect = document.getElementById("clothingSelect");
+
 // Update this with your actual production API URL
 import { API } from "../js/api.js";
 
 let products = [];
-let selected = null; // Declare once at the top
+let selected = null;
+let shirtImg = new Image();
+let shirtLoaded = false;
+
+// Function to update selected product info display
+function updateSelectedProductInfo(product) {
+    const infoDiv = document.getElementById('selectedProductInfo');
+    const nameElement = document.getElementById('selectedProductName');
+    const priceElement = document.getElementById('selectedProductPrice');
+    const categoryElement = document.getElementById('selectedProductCategory');
+    
+    if (product) {
+        nameElement.textContent = product.name;
+        priceElement.textContent = `Price: $${product.price}`;
+        categoryElement.textContent = `Category: ${product.category}`;
+        infoDiv.style.display = 'block';
+    } else {
+        infoDiv.style.display = 'none';
+    }
+}
 
 // Load any previously selected model from localStorage
 function loadSavedSelection() {
@@ -20,7 +40,7 @@ function loadSavedSelection() {
                 shirtLoaded = true;
                 updateSelectedProductInfo(selected);
                 // Also update the dropdown to show the selected item
-                document.getElementById('clothingSelect').value = selected._id;
+                clothingSelect.value = selected._id;
             };
         }
     }
@@ -29,22 +49,33 @@ function loadSavedSelection() {
 // Add this function to load products from your API
 async function loadProductsForTryOn() {
     try {
-        const select = document.getElementById('clothingSelect');
-        select.innerHTML = '<option value="none">Loading products...</option>';
+        clothingSelect.innerHTML = '<option value="none">Loading products...</option>';
         
         const response = await fetch(`${API.baseUrl}/products`);
         products = await response.json();
         
         populateClothingSelect();
-        select.disabled = false;
+        clothingSelect.disabled = false;
         
         // After loading products, load any saved selection
         loadSavedSelection();
     } catch (error) {
         console.error('Error loading products:', error);
-        const select = document.getElementById('clothingSelect');
-        select.innerHTML = '<option value="none">Error loading products</option>';
+        clothingSelect.innerHTML = '<option value="none">Error loading products</option>';
     }
+}
+
+// Function to populate the dropdown select with product names only
+function populateClothingSelect() {
+    clothingSelect.innerHTML = '<option value="none">Select a product...</option>';
+    
+    products.forEach(product => {
+        const option = document.createElement('option');
+        option.value = product._id; // Use product ID as value
+        option.textContent = product.name; // Only show product name
+        option.setAttribute('data-product', JSON.stringify(product));
+        clothingSelect.appendChild(option);
+    });
 }
 
 // Function to handle product selection
@@ -72,8 +103,8 @@ function selectProduct(productId) {
     }
 }
 
-// Update the dropdown change event listener
-document.getElementById('clothingSelect').addEventListener('change', function(e) {
+// SINGLE event listener for clothing select
+clothingSelect.addEventListener('change', function(e) {
     if (e.target.value === 'none') {
         selected = null;
         shirtLoaded = false;
@@ -89,22 +120,11 @@ document.getElementById('clothingSelect').addEventListener('change', function(e)
 // Call this function when the page loads
 loadProductsForTryOn();
 console.log('🚀 Try-on script loaded');
-const savedSelected = JSON.parse(localStorage.getItem("selectedModel"));
-let shirtImg = new Image();
-let shirtLoaded = false;
-shirtImg.src = selected ? selected.image : "shirt.png";
-shirtImg.onload = () => (shirtLoaded = true);
 
-// Change clothing
-clothingSelect.addEventListener("change", () => {
-    const newImg = new Image();
-    shirtLoaded = false;
-    newImg.src = clothingSelect.value;
-    newImg.onload = () => {
-        shirtImg = newImg;
-        shirtLoaded = true;
-    };
-});
+// Initialize shirt image with default or saved selection
+if (selected && selected.image) {
+    shirtImg.src = selected.image;
+} 
 
 // Keep canvas aspect ratio correct for mobile
 function resizeCanvasToVideo() {
@@ -125,7 +145,6 @@ function resizeCanvasToVideo() {
 }
 
 // Main drawing function
-
 function onResults(results) {
     if (!videoElement.srcObject) return;
 
@@ -222,8 +241,7 @@ function onResults(results) {
 
         canvasCtx.drawImage(shirtImg, drawX, drawY, drawW, drawH);
         canvasCtx.restore();
-    
-}
+    }
 }
 
 // Setup MediaPipe Pose
