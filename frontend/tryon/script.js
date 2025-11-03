@@ -3,8 +3,8 @@ const canvasElement = document.getElementById("output_canvas");
 const canvasCtx = canvasElement.getContext("2d");
 const clothingSelect = document.getElementById("clothingSelect");
 
-// Update this with your actual production API URL
-import { API } from "../js/api.js";
+// Use your actual API URL here
+const API_BASE = "https://showroomar-production.up.railway.app/api";
 
 let products = [];
 let selected = null;
@@ -51,7 +51,7 @@ async function loadProductsForTryOn() {
     try {
         clothingSelect.innerHTML = '<option value="none">Loading products...</option>';
         
-        const response = await fetch(`${API.baseUrl}/products`);
+        const response = await fetch(`${API_BASE_URL}/products`);
         products = await response.json();
         
         populateClothingSelect();
@@ -125,6 +125,7 @@ console.log('🚀 Try-on script loaded');
 if (selected && selected.image) {
     shirtImg.src = selected.image;
 } 
+
 
 // Keep canvas aspect ratio correct for mobile
 function resizeCanvasToVideo() {
