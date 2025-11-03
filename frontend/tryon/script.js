@@ -48,11 +48,7 @@ function onResults(results) {
     canvasCtx.save();
     canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
 
-    // Mirror webcam image for natural front-camera view
-    canvasCtx.translate(canvasElement.width, 0);
-    canvasCtx.scale(-1, 1);
-    canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
-    canvasCtx.restore();
+
 
     if (results.poseLandmarks && selectedClothing) {
       const landmarks = results.poseLandmarks;
