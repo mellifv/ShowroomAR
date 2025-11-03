@@ -10,35 +10,36 @@
   <header>
     <h1 class="logo">VestaWear</h1>
     <nav>
-  <a href="../index/index.html">Home</a>
-  <a href="../categories/categories.html">Categories</a>
-  <a href="tryon.html" class="active">Try On</a>
-</nav>
-
+      <a href="../index/index.html">Home</a>
+      <a href="../categories/categories.html">Categories</a>
+      <a href="tryon.html" class="active">Try On</a>
+    </nav>
   </header>
-<main class="tryon-container">
-  <div class="camera-wrapper">
-    <video id="input_video" style="display:none;"></video>
-    <canvas id="output_canvas" width="640" height="480"></canvas>
-  </div>
 
-  <div class="right-panel">
-    <h2>Virtual Try-On</h2>
-
-    <div class="control-panel">
-      <label for="clothingSelect">Choose an outfit:</label>
-      <select id="clothingSelect">
-        <option value= none>Choose</option>
-        <option value="../images/shirt.png">Blue Shirt</option>
-        <option value="../images/jacket.png">Jacket</option>
-        <option value="../images/suit.png">Suit</option>
-      </select>
+  <main class="tryon-container">
+    <div class="camera-wrapper">
+      <video id="input_video" style="display:none;"></video>
+      <canvas id="output_canvas" width="640" height="480"></canvas>
     </div>
 
-    <a href="../index/index.html" class="btn-secondary">← Return to Main Page</a>
-  </div>
-</main>
+    <div class="right-panel">
+      <h2>Virtual Try-On</h2>
 
+      <div class="control-panel">
+        <label for="clothingSelect">Choose an outfit:</label>
+        <select id="clothingSelect">
+          <option value="none">Choose from available products</option>
+          <!-- Products will be dynamically loaded here -->
+        </select>
+      </div>
+
+      <div class="products-grid" id="productsGrid">
+        <!-- Products will be displayed here as cards -->
+      </div>
+
+      <a href="../index/index.html" class="btn-secondary">← Return to Main Page</a>
+    </div>
+  </main>
 
   <footer>
     <p>© 2025 VestaWear | Virtual Fitting Experience</p>
