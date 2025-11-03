@@ -140,41 +140,44 @@ async function initializeCamera() {
 
     const stream = await navigator.mediaDevices.getUserMedia({
       video: {
-        facingMode: "user",
-        width: { ideal: 960 },
-        height: { ideal: 720 },
-        frameRate: { ideal: 24 },
+        facingMode: "user", // front camera
+        width: { ideal: 720 },
+        height: { ideal: 960 },
       },
+      audio: false,
     });
 
     videoElement.srcObject = stream;
 
+    // ⚡️ Force play on mobile
+    await videoElement.play().catch((err) => console.warn("Autoplay failed:", err));
+
+    // Wait until ready
     await new Promise((resolve) => {
-      videoElement.onloadedmetadata = () => {
-        videoElement.play().then(resolve).catch(resolve);
-      };
-      setTimeout(resolve, 1500);
+      if (videoElement.readyState >= 2) resolve();
+      else videoElement.onloadeddata = resolve;
     });
+
+    console.log("✅ Video playing:", videoElement.videoWidth, "x", videoElement.videoHeight);
 
     const camera = new Camera(videoElement, {
       onFrame: async () => {
-        try {
+        if (videoElement.readyState >= 2) {
           await pose.send({ image: videoElement });
-        } catch (error) {
-          console.warn("Frame skipped:", error);
         }
       },
-      width: 960,
-      height: 720,
+      width: 720,
+      height: 960,
     });
 
     await camera.start();
-    console.log("✅ Camera & Pose active");
+    console.log("✅ Camera + Pose started");
   } catch (error) {
-    console.error("❌ Camera failed:", error);
-    alert("Camera error: " + error.message);
+    console.error("❌ Camera init failed:", error);
+    alert("Camera access failed: " + error.message);
   }
 }
+
 
 // ====== POSITION CONTROLS ======
 function adjustPosition(change) {
