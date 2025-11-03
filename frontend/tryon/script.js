@@ -39,88 +39,59 @@ clothingSelect.addEventListener("change", (e) => {
 // OPTIMIZED pose processing with frame skipping
 // FIXED VERSION - Correct rotation and positioning
 function onResults(results) {
-  // Skip frame if still processing previous one
-  if (isProcessing) {
-    return;
-  }
-  
+  if (isProcessing) return;
   isProcessing = true;
-  
-  // Use requestAnimationFrame for smoother rendering
+
   requestAnimationFrame(() => {
     try {
-      canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-
-      // Draw camera feed
-      canvasCtx.drawImage(
-        results.image,
-        0, 0, canvasElement.width, canvasElement.height
-      );
+      const { width, height } = canvasElement;
+      canvasCtx.clearRect(0, 0, width, height);
+      canvasCtx.drawImage(results.image, 0, 0, width, height);
 
       if (results.poseLandmarks && selectedClothing) {
-        const landmarks = results.poseLandmarks;
+        const lm = results.poseLandmarks;
 
-        const leftShoulder = landmarks[11];
-        const rightShoulder = landmarks[12];
-        const leftHip = landmarks[23];
-        const rightHip = landmarks[24];
+        const leftShoulder = lm[11];
+        const rightShoulder = lm[12];
+        const leftHip = lm[23];
+        const rightHip = lm[24];
 
-        // Convert to canvas coordinates
-        const leftShoulderX = leftShoulder.x * canvasElement.width;
-        const leftShoulderY = leftShoulder.y * canvasElement.height;
-        const rightShoulderX = rightShoulder.x * canvasElement.width;
-        const rightShoulderY = rightShoulder.y * canvasElement.height;
+        // Convert normalized coords to canvas coords
+        const leftShoulderX = leftShoulder.x * width;
+        const leftShoulderY = leftShoulder.y * height;
+        const rightShoulderX = rightShoulder.x * width;
+        const rightShoulderY = rightShoulder.y * height;
+
+        const shoulderCenterX = (leftShoulderX + rightShoulderX) / 2;
+        const shoulderCenterY = (leftShoulderY + rightShoulderY) / 2;
 
         const shoulderWidth = Math.abs(rightShoulderX - leftShoulderX);
-        const bodyHeight = Math.abs(
-          ((leftHip.y + rightHip.y) / 2) * canvasElement.height - 
-          ((leftShoulderY + rightShoulderY) / 2)
-        );
+        const hipCenterY = ((leftHip.y + rightHip.y) / 2) * height;
 
-        // **FIXED CLOTHING SIZING**
-        const clothingWidth = shoulderWidth * 1.8;
-        const clothingHeight = bodyHeight * 1.2; // Slightly shorter
-        
-        const centerX = (leftShoulderX + rightShoulderX) / 2;
-        
-        // **FIXED POSITIONING - Start from shoulders, not above**
-        const startY = ((leftShoulderY + rightShoulderY) / 2) + (clothingHeight * 0.02);
+        // Calculate realistic clothing size
+        const clothingWidth = shoulderWidth * 2.2; // slightly wider for natural fit
+        const clothingHeight = (hipCenterY - shoulderCenterY) * 1.15;
 
-        // **FIXED ROTATION - Remove angle calculation for now**
-        // const shoulderAngle = Math.atan2(
-        //   rightShoulderY - leftShoulderY,
-        //   rightShoulderX - leftShoulderX
-        // );
+        // Position: slightly below shoulders
+        const x = shoulderCenterX - clothingWidth / 2;
+        const y = shoulderCenterY - clothingHeight * (0.15 - positionOffset);
 
-        // **SIMPLE DRAWING - No rotation**
-        canvasCtx.drawImage(
-          selectedClothing,
-          centerX - clothingWidth / 2, // Center horizontally
-          startY,                      // Start from shoulder level
-          clothingWidth,
-          clothingHeight
-        );
+        // Draw clothing
+        canvasCtx.drawImage(selectedClothing, x, y, clothingWidth, clothingHeight);
 
-        // Debug info
-        canvasCtx.fillStyle = 'white';
-        canvasCtx.font = '14px Arial';
-        canvasCtx.fillText(`Position: ${positionOffset.toFixed(2)}`, 10, 20);
-        
-        // Debug points
-        canvasCtx.fillStyle = 'red';
-        canvasCtx.fillRect(leftShoulderX - 3, leftShoulderY - 3, 6, 6);
-        canvasCtx.fillRect(rightShoulderX - 3, rightShoulderY - 3, 6, 6);
-        
-        canvasCtx.fillStyle = 'blue';
-        canvasCtx.fillRect(centerX - 2, startY - 2, 4, 4);
+        // Debug markers (optional)
+        // canvasCtx.fillStyle = "red";
+        // canvasCtx.fillRect(leftShoulderX - 2, leftShoulderY - 2, 4, 4);
+        // canvasCtx.fillRect(rightShoulderX - 2, rightShoulderY - 2, 4, 4);
       }
-    } catch (error) {
-      console.error('Rendering error:', error);
+    } catch (e) {
+      console.error("Render error:", e);
     } finally {
       isProcessing = false;
     }
   });
 }
+
 
 // SIMPLIFIED Pose configuration
 const pose = new Pose({
