@@ -1,27 +1,40 @@
 const videoElement = document.getElementById("input_video");
 const canvasElement = document.getElementById("output_canvas");
 const canvasCtx = canvasElement.getContext("2d");
+const isMobile = /Mobi|Android/i.test(navigator.userAgent);
+const videoWidth = isMobile ? 480 : 960;
+const videoHeight = isMobile ? 640 : 540;
 
 const clothingSelect = document.getElementById("clothingSelect");
 let clothingImage = new Image();
 let selectedClothing = null;
+canvasCtx.save();
+canvasCtx.scale(-1, 1);
+canvasCtx.drawImage(results.image, -canvasElement.width, 0, canvasElement.width, canvasElement.height);
+canvasCtx.restore();
 
 // Maintain aspect ratio automatically
 function resizeCanvasToVideo(video) {
-  const videoRatio = video.videoWidth / video.videoHeight;
-  const screenRatio = window.innerWidth / window.innerHeight;
+  const { videoWidth, videoHeight } = video;
+  if (videoWidth && videoHeight) {
+    const ratio = videoWidth / videoHeight;
+    let targetWidth, targetHeight;
 
-  // Adjust canvas size based on device orientation
-  if (screenRatio > 1) {
-    // landscape
-    canvasElement.width = 960;
-    canvasElement.height = 540;
-  } else {
-    // portrait (phone)
-    canvasElement.width = 720;
-    canvasElement.height = 960;
+    if (window.innerWidth < window.innerHeight) {
+      // portrait
+      targetWidth = window.innerWidth;
+      targetHeight = targetWidth / ratio;
+    } else {
+      // landscape
+      targetHeight = window.innerHeight;
+      targetWidth = targetHeight * ratio;
+    }
+
+    canvasElement.width = targetWidth;
+    canvasElement.height = targetHeight;
   }
 }
+
 
 // Load clothing image when user selects it
 clothingSelect.addEventListener("change", (e) => {
@@ -142,12 +155,14 @@ pose.onResults(onResults);
 async function initializeCamera() {
   try {
     const camera = new Camera(videoElement, {
-      onFrame: async () => {
-        try {
-          await pose.send({ image: videoElement });
-        } catch (error) {
-          console.error('Pose detection error:', error);
-        }
+      onFrame: async () => await pose.send({ image: videoElement }),
+      width: 720,
+      height: 1280,
+      facingMode: "user"
+      videoElement.setAttribute('playsinline', true);
+
+    });
+
       },
       width: 960,
       height: 540,
