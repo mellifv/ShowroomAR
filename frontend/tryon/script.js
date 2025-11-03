@@ -1,242 +1,228 @@
+// ====== ELEMENTS ======
 const videoElement = document.getElementById("input_video");
 const canvasElement = document.getElementById("output_canvas");
 const canvasCtx = canvasElement.getContext("2d");
-
 const clothingSelect = document.getElementById("clothingSelect");
+
+// ====== VARIABLES ======
 let clothingImage = new Image();
 let selectedClothing = null;
-
-// Position adjustment variable
 let positionOffset = 0.05;
-let isProcessing = false; // Prevent overlapping frame processing
+let isProcessing = false;
 
-// SIMPLIFIED canvas sizing - better performance
-function resizeCanvasToVideo() {
-  // Use fixed sizes for better performance
-  if (window.innerWidth > window.innerHeight) {
-    // Landscape
-    canvasElement.width = 640;
-    canvasElement.height = 480;
+// For smooth movement
+let prevCenterX = null;
+let prevClothingHeight = 0;
+
+// ====== CANVAS RESIZING ======
+function resizeCanvasToScreen() {
+  const aspect = window.innerWidth / window.innerHeight;
+
+  if (aspect > 1) {
+    // Landscape (desktop or tablet)
+    canvasElement.width = 960;
+    canvasElement.height = 720;
   } else {
     // Portrait (phone)
-    canvasElement.width = 480;
-    canvasElement.height = 640;
+    canvasElement.width = 720;
+    canvasElement.height = 960;
   }
-  console.log(`Canvas resized to: ${canvasElement.width}x${canvasElement.height}`);
+
+  console.log(`📐 Canvas resized: ${canvasElement.width}x${canvasElement.height}`);
 }
 
-// Load clothing image when user selects it
+// ====== LOAD CLOTHING ======
 clothingSelect.addEventListener("change", (e) => {
   const value = e.target.value;
   if (value && value !== "none") {
-    clothingImage.src = value;
-    selectedClothing = clothingImage;
+    const newImg = new Image();
+    newImg.src = value;
+    newImg.onload = () => {
+      clothingImage = newImg;
+      selectedClothing = clothingImage;
+      console.log("👕 Clothing loaded:", value);
+    };
   } else {
     selectedClothing = null;
   }
 });
 
-// OPTIMIZED pose processing with frame skipping
-// FIXED VERSION - Correct rotation and positioning
+// ====== POSE RESULTS ======
 function onResults(results) {
   if (isProcessing) return;
   isProcessing = true;
 
   requestAnimationFrame(() => {
     try {
-      const { width, height } = canvasElement;
-      canvasCtx.clearRect(0, 0, width, height);
-      canvasCtx.drawImage(results.image, 0, 0, width, height);
+      canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+      canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
 
       if (results.poseLandmarks && selectedClothing) {
-        const lm = results.poseLandmarks;
+        const landmarks = results.poseLandmarks;
 
-        const leftShoulder = lm[11];
-        const rightShoulder = lm[12];
-        const leftHip = lm[23];
-        const rightHip = lm[24];
+        const leftShoulder = landmarks[11];
+        const rightShoulder = landmarks[12];
+        const leftHip = landmarks[23];
+        const rightHip = landmarks[24];
 
-        // Convert normalized coords to canvas coords
-        const leftShoulderX = leftShoulder.x * width;
-        const leftShoulderY = leftShoulder.y * height;
-        const rightShoulderX = rightShoulder.x * width;
-        const rightShoulderY = rightShoulder.y * height;
-
-        const shoulderCenterX = (leftShoulderX + rightShoulderX) / 2;
-        const shoulderCenterY = (leftShoulderY + rightShoulderY) / 2;
+        const leftShoulderX = leftShoulder.x * canvasElement.width;
+        const leftShoulderY = leftShoulder.y * canvasElement.height;
+        const rightShoulderX = rightShoulder.x * canvasElement.width;
+        const rightShoulderY = rightShoulder.y * canvasElement.height;
 
         const shoulderWidth = Math.abs(rightShoulderX - leftShoulderX);
-        const hipCenterY = ((leftHip.y + rightHip.y) / 2) * height;
+        const centerX = (leftShoulderX + rightShoulderX) / 2;
+        const shoulderY = (leftShoulderY + rightShoulderY) / 2;
 
-        // Calculate realistic clothing size
-        const clothingWidth = shoulderWidth * 2.2; // slightly wider for natural fit
-        const clothingHeight = (hipCenterY - shoulderCenterY) * 1.15;
+        const hipsVisible =
+          leftHip && rightHip && leftHip.visibility > 0.5 && rightHip.visibility > 0.5;
 
-        // Position: slightly below shoulders
-        const x = shoulderCenterX - clothingWidth / 2;
-        const y = shoulderCenterY - clothingHeight * (0.15 - positionOffset);
+        let clothingWidth, clothingHeight, startY;
 
-        // Draw clothing
-        canvasCtx.drawImage(selectedClothing, x, y, clothingWidth, clothingHeight);
+        if (hipsVisible) {
+          // 🧍 Full torso view
+          const avgHipY = ((leftHip.y + rightHip.y) / 2) * canvasElement.height;
+          const bodyHeight = Math.abs(avgHipY - shoulderY);
+          clothingWidth = shoulderWidth * 1.8;
+          clothingHeight = bodyHeight * 1.2;
+          startY = shoulderY - clothingHeight * 0.05;
+        } else {
+          // 💻 Head + shoulders only
+          clothingWidth = shoulderWidth * 1.9;
+          clothingHeight = shoulderWidth * 0.75;
+          startY = shoulderY - clothingHeight * 0.25;
+        }
 
-        // Debug markers (optional)
-        // canvasCtx.fillStyle = "red";
-        // canvasCtx.fillRect(leftShoulderX - 2, leftShoulderY - 2, 4, 4);
-        // canvasCtx.fillRect(rightShoulderX - 2, rightShoulderY - 2, 4, 4);
+        // ====== SMOOTH TRANSITIONS ======
+        const smoothFactor = 0.2;
+        if (prevCenterX === null) prevCenterX = centerX;
+
+        prevCenterX = prevCenterX * (1 - smoothFactor) + centerX * smoothFactor;
+        prevClothingHeight =
+          prevClothingHeight * (1 - smoothFactor) + clothingHeight * smoothFactor;
+
+        // ====== DRAW CLOTHING ======
+        canvasCtx.drawImage(
+          selectedClothing,
+          prevCenterX - clothingWidth / 2,
+          startY + positionOffset * canvasElement.height,
+          clothingWidth,
+          prevClothingHeight
+        );
       }
-    } catch (e) {
-      console.error("Render error:", e);
+    } catch (error) {
+      console.error("Rendering error:", error);
     } finally {
       isProcessing = false;
     }
   });
 }
 
-
-// SIMPLIFIED Pose configuration
+// ====== MEDIAPIPE SETUP ======
 const pose = new Pose({
-  locateFile: (file) =>
-    `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`,
+  locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`,
 });
 
 pose.setOptions({
-  modelComplexity: 0, // LOWER complexity for better performance
+  modelComplexity: 0,
   smoothLandmarks: true,
   enableSegmentation: false,
-  minDetectionConfidence: 0.5, // LOWER for faster detection
-  minTrackingConfidence: 0.5,  // LOWER for better tracking
+  minDetectionConfidence: 0.5,
+  minTrackingConfidence: 0.5,
 });
 
 pose.onResults(onResults);
 
-// RELIABLE Camera initialization
+// ====== CAMERA INITIALIZATION ======
 async function initializeCamera() {
   try {
-    console.log('🔄 Starting camera...');
-    
-    // Test camera access first
+    console.log("🎥 Starting camera...");
+
     const stream = await navigator.mediaDevices.getUserMedia({
-      video: { 
-        width: { ideal: 640 },
-        height: { ideal: 480 },
-        frameRate: { ideal: 24 } // Lower FPS for stability
-      } 
+      video: {
+        facingMode: "user",
+        width: { ideal: 960 },
+        height: { ideal: 720 },
+        frameRate: { ideal: 24 },
+      },
     });
-    
+
     videoElement.srcObject = stream;
-    
-    // Wait for video to be ready
+
     await new Promise((resolve) => {
       videoElement.onloadedmetadata = () => {
         videoElement.play().then(resolve).catch(resolve);
       };
-      setTimeout(resolve, 2000);
+      setTimeout(resolve, 1500);
     });
-    
-    console.log('✅ Camera ready, starting MediaPipe...');
-    
-    // Start MediaPipe with error handling
+
     const camera = new Camera(videoElement, {
       onFrame: async () => {
         try {
           await pose.send({ image: videoElement });
         } catch (error) {
-          console.warn('Frame processing skipped:', error);
+          console.warn("Frame skipped:", error);
         }
       },
-      width: 640,  // Lower resolution for performance
-      height: 480
+      width: 960,
+      height: 720,
     });
-    
+
     await camera.start();
-    console.log('✅ MediaPipe started successfully');
-    
+    console.log("✅ Camera & Pose active");
   } catch (error) {
-    console.error('❌ Camera initialization failed:', error);
-    
-    let message = 'Camera error: ';
-    if (error.name === 'NotAllowedError') {
-      message = 'Camera permission denied. Please allow camera access and refresh.';
-    } else if (error.name === 'NotFoundError') {
-      message = 'No camera found on this device.';
-    } else {
-      message += error.message;
-    }
-    
-    alert(message);
+    console.error("❌ Camera failed:", error);
+    alert("Camera error: " + error.message);
   }
 }
 
-// Position adjustment functions
+// ====== POSITION CONTROLS ======
 function adjustPosition(change) {
-  positionOffset = Math.max(-0.2, Math.min(0.3, positionOffset + change));
+  positionOffset = Math.max(-0.3, Math.min(0.3, positionOffset + change));
   updatePositionDisplay();
-  console.log('Position offset:', positionOffset);
 }
 
 function resetPosition() {
   positionOffset = 0.05;
   updatePositionDisplay();
-  console.log('Position reset to:', positionOffset);
 }
 
 function updatePositionDisplay() {
-  const display = document.getElementById('positionDisplay');
-  if (display) {
-    display.textContent = positionOffset.toFixed(2);
-  }
+  const display = document.getElementById("positionDisplay");
+  if (display) display.textContent = positionOffset.toFixed(2);
 }
 
-// Add position controls
 function addPositionControls() {
-  const controls = document.createElement('div');
+  const controls = document.createElement("div");
   controls.innerHTML = `
     <div style="position: fixed; top: 10px; left: 10px; background: rgba(0,0,0,0.8); color: white; padding: 10px; z-index: 1000; border-radius: 10px; font-size: 14px;">
       <div style="margin-bottom: 8px; font-weight: bold;">🎯 Position Adjust:</div>
       <div style="margin-bottom: 5px;">Current: <span id="positionDisplay">${positionOffset.toFixed(2)}</span></div>
-      <button onclick="adjustPosition(-0.05)" style="margin: 2px; padding: 6px 10px; background: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 12px;">⬆️ Higher</button>
-      <button onclick="adjustPosition(0.05)" style="margin: 2px; padding: 6px 10px; background: #2196F3; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 12px;">⬇️ Lower</button>
-      <button onclick="resetPosition()" style="margin: 2px; padding: 6px 10px; background: #ff9800; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 12px;">🔄 Reset</button>
+      <button onclick="adjustPosition(-0.05)" style="margin: 2px; padding: 6px 10px; background: #4CAF50; color: white; border: none; border-radius: 5px;">⬆️ Higher</button>
+      <button onclick="adjustPosition(0.05)" style="margin: 2px; padding: 6px 10px; background: #2196F3; color: white; border: none; border-radius: 5px;">⬇️ Lower</button>
+      <button onclick="resetPosition()" style="margin: 2px; padding: 6px 10px; background: #ff9800; color: white; border: none; border-radius: 5px;">🔄 Reset</button>
     </div>
   `;
   document.body.appendChild(controls);
 }
 
-// Set default clothing
+// ====== INITIALIZATION ======
 clothingImage.onload = () => {
-  console.log('✅ Clothing image loaded');
   selectedClothing = clothingImage;
+  console.log("👕 Default clothing loaded");
 };
 clothingImage.src = "shirt.png";
 
-// Initialize everything
-document.addEventListener('DOMContentLoaded', () => {
-  console.log('📄 Page loaded, initializing...');
-  resizeCanvasToVideo();
+document.addEventListener("DOMContentLoaded", () => {
+  resizeCanvasToScreen();
   addPositionControls();
-  
-  // Small delay to ensure everything is ready
-  setTimeout(() => {
-    initializeCamera();
-  }, 500);
+  initializeCamera();
 });
 
-// Handle window resize
-window.addEventListener('resize', () => {
-  resizeCanvasToVideo();
-});
+window.addEventListener("resize", resizeCanvasToScreen);
 
-// Cleanup when leaving page
-window.addEventListener('beforeunload', () => {
+window.addEventListener("beforeunload", () => {
   if (videoElement.srcObject) {
-    videoElement.srcObject.getTracks().forEach(track => track.stop());
+    videoElement.srcObject.getTracks().forEach((track) => track.stop());
   }
 });
-
-// Add manual restart function
-function restartCamera() {
-  if (videoElement.srcObject) {
-    videoElement.srcObject.getTracks().forEach(track => track.stop());
-  }
-  setTimeout(initializeCamera, 1000);
-}
