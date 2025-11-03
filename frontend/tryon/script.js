@@ -5,15 +5,21 @@ const clothingSelect = document.getElementById("clothingSelect");
 let products = [];
 let selected = null;
 // Add this function to load products from your API
+// Function to load products from your API
 async function loadProductsForTryOn() {
     try {
+        const select = document.getElementById('clothingSelect');
+        select.innerHTML = '<option value="none">Loading products...</option>';
+        
         const response = await fetch(`${API_BASE}/products`);
         products = await response.json();
+        
         populateClothingSelect();
+        select.disabled = false;
     } catch (error) {
         console.error('Error loading products:', error);
-        document.getElementById('clothingSelect').innerHTML = 
-            '<option value="none">Error loading products</option>';
+        const select = document.getElementById('clothingSelect');
+        select.innerHTML = '<option value="none">Error loading products</option>';
     }
 }
 
