@@ -76,10 +76,14 @@ function onResults(results) {
     const RK = pxMirrored(LM[26]);
 
     const itemName = (selected?.name || "").toLowerCase();
+    const itemName = (
+      selected?.name ||
+      selected?.product_name ||
+      selected?.title ||
+      selected?.image || ""
+    ).toLowerCase();
     const isBottom = /trouser|pant|jean|short/.test(itemName);
-    console.log("Selected object:", selected);
 
-    console.log("Detected item name:", itemName, "→ isBottom:", isBottom);
 
     if (!isBottom) {
         // --- SHIRT / JACKET ---
