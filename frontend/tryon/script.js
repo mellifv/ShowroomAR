@@ -129,7 +129,7 @@ function onResults(results) {
             drawY = -drawH * 0.1; // Position slightly above hips for better fit
         } else {
             // For trousers/pants - extend to ankles
-            drawW = waistWidth * 1.7; // Slightly narrower than shorts
+            drawW = waistWidth * 2.5; // Slightly narrower than shorts
             drawH = Math.max(40, legHeight * 1.4); // Longer length
             drawY = -drawH * 0.15; // Position at hips with slight overlap
         }
