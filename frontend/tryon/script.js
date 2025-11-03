@@ -48,7 +48,7 @@ function onResults(results) {
     canvasCtx.save();
     canvasCtx.clearRect(0, 0, width, height);
 
-    // Mirror horizontally (selfie-style)
+    // Mirror horizontally (selfie style)
     canvasCtx.translate(width, 0);
     canvasCtx.scale(-1, 1);
     canvasCtx.drawImage(results.image, 0, 0, width, height);
@@ -63,34 +63,44 @@ function onResults(results) {
         return;
     }
 
-    // Use correct orientation
-    const leftShoulder = results.poseLandmarks[11];
-    const rightShoulder = results.poseLandmarks[12];
-    const leftHip = results.poseLandmarks[23];
-    const rightHip = results.poseLandmarks[24];
+    // Get relevant pose landmarks
+    const lShoulder = results.poseLandmarks[11];
+    const rShoulder = results.poseLandmarks[12];
+    const lHip = results.poseLandmarks[23];
+    const rHip = results.poseLandmarks[24];
 
-    const shoulderCenter = {
-        x: (leftShoulder.x + rightShoulder.x) / 2,
-        y: (leftShoulder.y + rightShoulder.y) / 2,
-    };
-    const hipCenter = {
-        x: (leftHip.x + rightHip.x) / 2,
-        y: (leftHip.y + rightHip.y) / 2,
-    };
+    // Convert normalized coords to pixels
+    function px(point) {
+        return { x: point.x * width, y: point.y * height };
+    }
+    const LS = px(lShoulder);
+    const RS = px(rShoulder);
+    const LH = px(lHip);
+    const RH = px(rHip);
 
-    const shirtWidth = Math.abs(rightShoulder.x - leftShoulder.x) * width * 2;
-    const shirtHeight = Math.abs(hipCenter.y - shoulderCenter.y) * height * 1.2;
+    // Average torso points
+    const torsoTop = { x: (LS.x + RS.x) / 2, y: (LS.y + RS.y) / 2 };
+    const torsoBottom = { x: (LH.x + RH.x) / 2, y: (LH.y + RH.y) / 2 };
 
-    // Fix vertical inversion: y coordinate recalculated properly
-    const x = (1 - shoulderCenter.x) * width - shirtWidth / 2;
-    const y = shoulderCenter.y * height - shirtHeight * 0.2;
+    // Compute scale and rotation
+    const torsoWidth = Math.hypot(RS.x - LS.x, RS.y - LS.y);
+    const torsoHeight = Math.hypot(torsoBottom.x - torsoTop.x, torsoBottom.y - torsoTop.y);
+    const angle = Math.atan2(RS.y - LS.y, RS.x - LS.x);
 
+    // Draw transformed shirt
     canvasCtx.save();
-    canvasCtx.translate(width, 0);
-    canvasCtx.scale(-1, 1);
-    canvasCtx.drawImage(shirtImg, x, y, shirtWidth, shirtHeight);
+    canvasCtx.translate(torsoTop.x, torsoTop.y);
+    canvasCtx.rotate(angle);
+    canvasCtx.drawImage(
+        shirtImg,
+        -torsoWidth * 0.9,   // horizontal offset
+        -torsoHeight * 0.2,  // vertical offset
+        torsoWidth * 2,      // width scale
+        torsoHeight * 2      // height scale
+    );
     canvasCtx.restore();
 }
+
 
 // Setup MediaPipe Pose
 const pose = new Pose({
