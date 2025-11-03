@@ -8,7 +8,7 @@ let selected = null;
 // Function to load products from your API
 async function loadProductsForTryOn() {
     try {
-        const select = document.getElementById('clothingSelect');
+        select = document.getElementById('clothingSelect');
         select.innerHTML = '<option value="none">Loading products...</option>';
         
         const response = await fetch(`${API_BASE}/products`);
