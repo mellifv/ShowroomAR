@@ -118,7 +118,7 @@ function onResults(results) {
         const drawW = waistWidth * 1.6;
         const drawH = Math.max(20, legHeight * 2.5);
         const drawX = -drawW / 2;
-        const drawY = legHeight * 0.1; // move image slightly lower
+        const drawY = 0; 
 
 
         canvasCtx.drawImage(shirtImg, drawX, drawY, drawW, drawH);
