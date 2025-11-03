@@ -1,6 +1,7 @@
 const videoElement = document.getElementById("input_video");
 const canvasElement = document.getElementById("output_canvas");
 const canvasCtx = canvasElement.getContext("2d");
+
 const isMobile = /Mobi|Android/i.test(navigator.userAgent);
 const videoWidth = isMobile ? 480 : 960;
 const videoHeight = isMobile ? 640 : 540;
@@ -8,10 +9,6 @@ const videoHeight = isMobile ? 640 : 540;
 const clothingSelect = document.getElementById("clothingSelect");
 let clothingImage = new Image();
 let selectedClothing = null;
-canvasCtx.save();
-canvasCtx.scale(-1, 1);
-canvasCtx.drawImage(results.image, -canvasElement.width, 0, canvasElement.width, canvasElement.height);
-canvasCtx.restore();
 
 // Maintain aspect ratio automatically
 function resizeCanvasToVideo(video) {
@@ -35,7 +32,6 @@ function resizeCanvasToVideo(video) {
   }
 }
 
-
 // Load clothing image when user selects it
 clothingSelect.addEventListener("change", (e) => {
   const value = e.target.value;
@@ -48,94 +44,67 @@ clothingSelect.addEventListener("change", (e) => {
 });
 
 function onResults(results) {
-  canvasCtx.save();
-  canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-
-  // Draw mirrored webcam image
-  canvasCtx.drawImage(
-    results.image,
-    0,
-    0,
-    canvasElement.width,
-    canvasElement.height
-  );
-
-  if (results.poseLandmarks && selectedClothing) {
-    const landmarks = results.poseLandmarks;
-
-    // **PRECISE SHOULDER DETECTION**
-    const leftShoulder = landmarks[11];
-    const rightShoulder = landmarks[12];
-    const leftHip = landmarks[23];
-    const rightHip = landmarks[24];
-    const leftElbow = landmarks[13];
-    const rightElbow = landmarks[14];
-
-    // Convert normalized coordinates to canvas pixels
-    const leftShoulderX = leftShoulder.x * canvasElement.width;
-    const leftShoulderY = leftShoulder.y * canvasElement.height;
-    const rightShoulderX = rightShoulder.x * canvasElement.width;
-    const rightShoulderY = rightShoulder.y * canvasElement.height;
-
-    // **CALCULATE EXACT CLOTHING POSITION**
-    
-    // Shoulder width (base for clothing width)
-    const shoulderWidth = Math.abs(rightShoulderX - leftShoulderX);
-    
-    // Body height from shoulders to hips
-    const bodyHeight = Math.abs(
-      ((leftHip.y + rightHip.y) / 2) * canvasElement.height - 
-      ((leftShoulderY + rightShoulderY) / 2)
-    );
-
-    // **PRECISE POSITIONING**
-    const clothingWidth = shoulderWidth * 1.8; // Slightly wider than shoulders
-    const clothingHeight = bodyHeight * 1.3;   // Extend below hips
-    
-    // Center position between shoulders
-    const centerX = (leftShoulderX + rightShoulderX) / 2;
-    
-    // Start from slightly above shoulders for natural fit
-    const startY = ((leftShoulderY + rightShoulderY) / 2) - (clothingHeight * 0.1);
-
-    // **ADJUST FOR BODY ROTATION**
-    // Calculate shoulder angle for tilted poses
-    const shoulderAngle = Math.atan2(
-      rightShoulderY - leftShoulderY,
-      rightShoulderX - leftShoulderX
-    );
-
-    // **DRAW CLOTHING WITH PRECISE PLACEMENT**
+  requestAnimationFrame(() => {
     canvasCtx.save();
-    
-    // Apply rotation if body is tilted
-    canvasCtx.translate(centerX, startY + (clothingHeight * 0.1));
-    canvasCtx.rotate(shoulderAngle);
-    
-    // Draw clothing centered on shoulders
-    canvasCtx.drawImage(
-      selectedClothing,
-      -clothingWidth / 2,    // Center horizontally
-      -clothingHeight * 0.1, // Start slightly above shoulder line
-      clothingWidth,
-      clothingHeight
-    );
-    
+    canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+
+    // Mirror webcam image for natural front-camera view
+    canvasCtx.translate(canvasElement.width, 0);
+    canvasCtx.scale(-1, 1);
+    canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
     canvasCtx.restore();
 
-    // **DEBUG: Draw shoulder points (remove in production)**
-    canvasCtx.fillStyle = 'red';
-    canvasCtx.fillRect(leftShoulderX - 5, leftShoulderY - 5, 10, 10);
-    canvasCtx.fillRect(rightShoulderX - 5, rightShoulderY - 5, 10, 10);
-    
-    canvasCtx.fillStyle = 'blue';
-    canvasCtx.fillRect(centerX - 3, startY - 3, 6, 6);
-  }
+    if (results.poseLandmarks && selectedClothing) {
+      const landmarks = results.poseLandmarks;
 
-  canvasCtx.restore();
+      const leftShoulder = landmarks[11];
+      const rightShoulder = landmarks[12];
+      const leftHip = landmarks[23];
+      const rightHip = landmarks[24];
+
+      // Convert normalized coordinates to canvas pixels
+      const leftShoulderX = leftShoulder.x * canvasElement.width;
+      const leftShoulderY = leftShoulder.y * canvasElement.height;
+      const rightShoulderX = rightShoulder.x * canvasElement.width;
+      const rightShoulderY = rightShoulder.y * canvasElement.height;
+
+      const shoulderWidth = Math.abs(rightShoulderX - leftShoulderX);
+      const bodyHeight = Math.abs(
+        ((leftHip.y + rightHip.y) / 2) * canvasElement.height -
+        ((leftShoulderY + rightShoulderY) / 2)
+      );
+
+      const clothingWidth = shoulderWidth * 1.8;
+      const clothingHeight = bodyHeight * 1.3;
+      const centerX = (leftShoulderX + rightShoulderX) / 2;
+      const startY = ((leftShoulderY + rightShoulderY) / 2) - (clothingHeight * 0.1);
+      const shoulderAngle = Math.atan2(
+        rightShoulderY - leftShoulderY,
+        rightShoulderX - leftShoulderX
+      );
+
+      // Draw clothing
+      canvasCtx.save();
+      canvasCtx.translate(centerX, startY + (clothingHeight * 0.1));
+      canvasCtx.rotate(shoulderAngle);
+      canvasCtx.drawImage(
+        selectedClothing,
+        -clothingWidth / 2,
+        -clothingHeight * 0.1,
+        clothingWidth,
+        clothingHeight
+      );
+      canvasCtx.restore();
+
+      // Debug dots (smaller for mobile)
+      canvasCtx.fillStyle = 'red';
+      canvasCtx.fillRect(leftShoulderX - 2, leftShoulderY - 2, 4, 4);
+      canvasCtx.fillRect(rightShoulderX - 2, rightShoulderY - 2, 4, 4);
+    }
+  });
 }
 
-// **ENHANCED POSE CONFIGURATION FOR BETTER TRACKING**
+// Pose setup
 const pose = new Pose({
   locateFile: (file) =>
     `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`,
@@ -145,64 +114,55 @@ pose.setOptions({
   modelComplexity: 1,
   smoothLandmarks: true,
   enableSegmentation: false,
-  minDetectionConfidence: 0.7,    // Higher for better accuracy
-  minTrackingConfidence: 0.7,     // Higher for stable tracking
+  minDetectionConfidence: 0.7,
+  minTrackingConfidence: 0.7,
 });
 
 pose.onResults(onResults);
 
-// **IMPROVED CAMERA INITIALIZATION**
+// Camera setup
 async function initializeCamera() {
   try {
+    videoElement.setAttribute('playsinline', true);
     const camera = new Camera(videoElement, {
-      onFrame: async () => await pose.send({ image: videoElement }),
-      width: 720,
-      height: 1280,
-      facingMode: "user"
-      videoElement.setAttribute('playsinline', true);
-
-    });
-
+      onFrame: async () => {
+        try {
+          await pose.send({ image: videoElement });
+        } catch (err) {
+          console.error('Pose detection error:', err);
+        }
       },
-      width: 960,
-      height: 540,
+      width: videoWidth,
+      height: videoHeight,
+      facingMode: "user"
     });
-    
+
     await camera.start();
     console.log('✅ Camera and pose detection started');
-    
   } catch (error) {
     console.error('❌ Camera initialization failed:', error);
     alert('Camera error: ' + error.message);
   }
 }
 
-// **WAIT FOR CLOTHING IMAGE TO LOAD BEFORE STARTING**
-clothingImage.onload = () => {
-  console.log('✅ Clothing image loaded');
-};
-
-// Set default clothing
-clothingImage.src = "shirt.png"; // Default clothing
+// Wait for clothing image
+clothingImage.onload = () => console.log('✅ Clothing image loaded');
+clothingImage.src = "shirt.png";
 selectedClothing = clothingImage;
 
-// Adjust canvas dynamically when camera starts
 videoElement.addEventListener("loadedmetadata", () => {
   resizeCanvasToVideo(videoElement);
 });
 
-// Handle resizing (for phones rotating)
 window.addEventListener("resize", () => {
   resizeCanvasToVideo(videoElement);
 });
 
-// Start everything when page loads
 document.addEventListener('DOMContentLoaded', () => {
   initializeCamera();
 });
 
-// **ADD MANUAL CALIBRATION IF NEEDED**
+// Optional manual calibration
 function calibrateClothingPosition(adjustment = 1.0) {
-  // This can be called to fine-tune clothing position
   console.log('Calibrating clothing position:', adjustment);
 }
