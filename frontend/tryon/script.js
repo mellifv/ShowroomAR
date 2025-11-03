@@ -77,6 +77,7 @@ function onResults(results) {
 
     const itemName = (selected?.name || "").toLowerCase();
     const isBottom = /trouser|pant|jean|short/.test(itemName);
+    console.log("Detected item name:", itemName, "→ isBottom:", isBottom);
 
     if (!isBottom) {
         // --- SHIRT / JACKET ---
