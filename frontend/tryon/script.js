@@ -38,7 +38,6 @@ function onResults(results) {
   canvasCtx.save();
   canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
 
-  // Draw mirrored webcam image
   canvasCtx.drawImage(
     results.image,
     0,
@@ -50,65 +49,70 @@ function onResults(results) {
   if (results.poseLandmarks && selectedClothing) {
     const landmarks = results.poseLandmarks;
 
-    // **PRECISE SHOULDER DETECTION**
     const leftShoulder = landmarks[11];
     const rightShoulder = landmarks[12];
     const leftHip = landmarks[23];
     const rightHip = landmarks[24];
-    const leftElbow = landmarks[13];
-    const rightElbow = landmarks[14];
 
-    // Convert normalized coordinates to canvas pixels
     const leftShoulderX = leftShoulder.x * canvasElement.width;
     const leftShoulderY = leftShoulder.y * canvasElement.height;
     const rightShoulderX = rightShoulder.x * canvasElement.width;
     const rightShoulderY = rightShoulder.y * canvasElement.height;
 
-    // **CALCULATE EXACT CLOTHING POSITION**
-    
-    // Shoulder width (base for clothing width)
     const shoulderWidth = Math.abs(rightShoulderX - leftShoulderX);
-    
-    // Body height from shoulders to hips
     const bodyHeight = Math.abs(
       ((leftHip.y + rightHip.y) / 2) * canvasElement.height - 
       ((leftShoulderY + rightShoulderY) / 2)
     );
 
-    // **PRECISE POSITIONING**
-    const clothingWidth = shoulderWidth * 1.2; // Slightly wider than shoulders
-    const clothingHeight = bodyHeight * 2;   // Extend below hips
+    // **ADJUSTABLE CLOTHING SIZE**
+    const clothingWidth = shoulderWidth * 1.8;
+    const clothingHeight = bodyHeight * 1.3;
     
-    // Center position between shoulders
     const centerX = (leftShoulderX + rightShoulderX) / 2;
     
-    // Start from slightly above shoulders for natural fit
-    const startY = ((leftShoulderY + rightShoulderY) / 2) - (clothingHeight * 0.1);
+    // **FINE-TUNED POSITIONING - TRY DIFFERENT VALUES**
+    const verticalOffset = clothingHeight * 0.05; // Adjust this value
+    const startY = ((leftShoulderY + rightShoulderY) / 2) + (clothingHeight * positionOffset);
 
-    // **ADJUST FOR BODY ROTATION**
-    // Calculate shoulder angle for tilted poses
+
     const shoulderAngle = Math.atan2(
       rightShoulderY - leftShoulderY,
       rightShoulderX - leftShoulderX
     );
 
-    // **DRAW CLOTHING WITH PRECISE PLACEMENT**
     canvasCtx.save();
-    
-    // Apply rotation if body is tilted
-    canvasCtx.translate(centerX, startY + (clothingHeight * 0.1));
+    canvasCtx.translate(centerX, startY);
     canvasCtx.rotate(shoulderAngle);
     
-    // Draw clothing centered on shoulders
     canvasCtx.drawImage(
       selectedClothing,
-      -clothingWidth / 2,    // Center horizontally
-      -clothingHeight * 0.1, // Start slightly above shoulder line
+      -clothingWidth / 2,
+      0, // Start drawing from shoulder level
       clothingWidth,
       clothingHeight
     );
     
     canvasCtx.restore();
+
+    // **DEBUG VISUALS**
+    canvasCtx.fillStyle = 'rgba(255, 0, 0, 0.7)';
+    canvasCtx.fillRect(leftShoulderX - 5, leftShoulderY - 5, 10, 10);
+    canvasCtx.fillRect(rightShoulderX - 5, rightShoulderY - 5, 10, 10);
+    
+    canvasCtx.fillStyle = 'rgba(0, 0, 255, 0.7)';
+    canvasCtx.fillRect(centerX - 3, startY - 3, 6, 6);
+    
+    // Draw line showing clothing start position
+    canvasCtx.strokeStyle = 'rgba(0, 255, 0, 0.7)';
+    canvasCtx.beginPath();
+    canvasCtx.moveTo(centerX - 50, startY);
+    canvasCtx.lineTo(centerX + 50, startY);
+    canvasCtx.stroke();
+  }
+
+  canvasCtx.restore();
+}
 
     // **DEBUG: Draw shoulder points (remove in production)**
     canvasCtx.fillStyle = 'red';
@@ -191,3 +195,24 @@ function calibrateClothingPosition(adjustment = 1.0) {
   // This can be called to fine-tune clothing position
   console.log('Calibrating clothing position:', adjustment);
 }
+
+// Temporary: Add position adjustment buttons
+function addPositionControls() {
+  const controls = document.createElement('div');
+  controls.innerHTML = `
+    <div style="position: fixed; top: 10px; left: 10px; background: rgba(0,0,0,0.8); color: white; padding: 10px; z-index: 1000;">
+      <div>Position Adjust:</div>
+      <button onclick="adjustPosition(-0.05)">⬆️ Higher</button>
+      <button onclick="adjustPosition(0.05)">⬇️ Lower</button>
+    </div>
+  `;
+  document.body.appendChild(controls);
+}
+
+let positionOffset = 0;
+function adjustPosition(change) {
+  positionOffset += change;
+  console.log('Position offset:', positionOffset);
+}
+
+// Use in your onResults function:
