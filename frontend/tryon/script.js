@@ -1,231 +1,220 @@
-// ====== ELEMENTS ======
 const videoElement = document.getElementById("input_video");
 const canvasElement = document.getElementById("output_canvas");
 const canvasCtx = canvasElement.getContext("2d");
 const clothingSelect = document.getElementById("clothingSelect");
 
-// ====== VARIABLES ======
-let clothingImage = new Image();
-let selectedClothing = null;
-let positionOffset = 0.05;
-let isProcessing = false;
+// Mobile camera detection
+const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 
-// For smooth movement
-let prevCenterX = null;
-let prevClothingHeight = 0;
-
-// ====== CANVAS RESIZING ======
-function resizeCanvasToScreen() {
-  const aspect = window.innerWidth / window.innerHeight;
-
-  if (aspect > 1) {
-    // Landscape (desktop or tablet)
-    canvasElement.width = 960;
-    canvasElement.height = 720;
-  } else {
-    // Portrait (phone)
-    canvasElement.width = 720;
-    canvasElement.height = 960;
-  }
-
-  console.log(`📐 Canvas resized: ${canvasElement.width}x${canvasElement.height}`);
+// Show mobile instructions
+if (isMobile) {
+  showMobileInstructions();
 }
 
-// ====== LOAD CLOTHING ======
-clothingSelect.addEventListener("change", (e) => {
-  const value = e.target.value;
-  if (value && value !== "none") {
-    const newImg = new Image();
-    newImg.src = value;
-    newImg.onload = () => {
-      clothingImage = newImg;
-      selectedClothing = clothingImage;
-      console.log("👕 Clothing loaded:", value);
-    };
-  } else {
-    selectedClothing = null;
-  }
+const selected = JSON.parse(localStorage.getItem("selectedModel"));
+let shirtImg = new Image();
+let shirtLoaded = false;
+shirtImg.src = selected ? selected.image : "shirt.png";
+shirtImg.onload = () => (shirtLoaded = true);
+
+// Change clothing safely
+clothingSelect.addEventListener("change", () => {
+  const newImg = new Image();
+  shirtLoaded = false;
+  newImg.src = clothingSelect.value;
+  newImg.onload = () => {
+    shirtImg = newImg;
+    shirtLoaded = true;
+  };
 });
 
-// ====== POSE RESULTS ======
 function onResults(results) {
-  if (isProcessing) return;
-  isProcessing = true;
+  canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+  canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
 
-  requestAnimationFrame(() => {
-    try {
-      canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-      canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+  if (!shirtLoaded || !results.poseLandmarks) return;
 
-      if (results.poseLandmarks && selectedClothing) {
-        const landmarks = results.poseLandmarks;
+  const leftShoulder = results.poseLandmarks[11];
+  const rightShoulder = results.poseLandmarks[12];
+  const leftHip = results.poseLandmarks[23];
+  const rightHip = results.poseLandmarks[24];
 
-        const leftShoulder = landmarks[11];
-        const rightShoulder = landmarks[12];
-        const leftHip = landmarks[23];
-        const rightHip = landmarks[24];
+  const shoulderCenter = {
+    x: (leftShoulder.x + rightShoulder.x) / 2,
+    y: (leftShoulder.y + rightShoulder.y) / 3,
+  };
+  const hipCenter = {
+    x: (leftHip.x + rightHip.x) / 2,
+    y: (leftHip.y + rightHip.y) / 2,
+  };
 
-        const leftShoulderX = leftShoulder.x * canvasElement.width;
-        const leftShoulderY = leftShoulder.y * canvasElement.height;
-        const rightShoulderX = rightShoulder.x * canvasElement.width;
-        const rightShoulderY = rightShoulder.y * canvasElement.height;
+  const width = Math.abs(rightShoulder.x - leftShoulder.x) * canvasElement.width * 2;
+  const height = Math.abs(hipCenter.y - shoulderCenter.y) * canvasElement.height * 1;
 
-        const shoulderWidth = Math.abs(rightShoulderX - leftShoulderX);
-        const centerX = (leftShoulderX + rightShoulderX) / 2;
-        const shoulderY = (leftShoulderY + rightShoulderY) / 2;
+  const x = shoulderCenter.x * canvasElement.width - width / 2;
+  const y = shoulderCenter.y * canvasElement.height - height * 0.25;
 
-        const hipsVisible =
-          leftHip && rightHip && leftHip.visibility > 0.5 && rightHip.visibility > 0.5;
-
-        let clothingWidth, clothingHeight, startY;
-
-        if (hipsVisible) {
-          // 🧍 Full torso view
-          const avgHipY = ((leftHip.y + rightHip.y) / 2) * canvasElement.height;
-          const bodyHeight = Math.abs(avgHipY - shoulderY);
-          clothingWidth = shoulderWidth * 1.8;
-          clothingHeight = bodyHeight * 1.2;
-          startY = shoulderY - clothingHeight * 0.05;
-        } else {
-          // 💻 Head + shoulders only
-          clothingWidth = shoulderWidth * 1.9;
-          clothingHeight = shoulderWidth * 0.75;
-          startY = shoulderY - clothingHeight * 0.25;
-        }
-
-        // ====== SMOOTH TRANSITIONS ======
-        const smoothFactor = 0.2;
-        if (prevCenterX === null) prevCenterX = centerX;
-
-        prevCenterX = prevCenterX * (1 - smoothFactor) + centerX * smoothFactor;
-        prevClothingHeight =
-          prevClothingHeight * (1 - smoothFactor) + clothingHeight * smoothFactor;
-
-        // ====== DRAW CLOTHING ======
-        canvasCtx.drawImage(
-          selectedClothing,
-          prevCenterX - clothingWidth / 2,
-          startY + positionOffset * canvasElement.height,
-          clothingWidth,
-          prevClothingHeight
-        );
-      }
-    } catch (error) {
-      console.error("Rendering error:", error);
-    } finally {
-      isProcessing = false;
-    }
-  });
+  canvasCtx.drawImage(shirtImg, x, y, width, height);
 }
 
-// ====== MEDIAPIPE SETUP ======
+// Setup MediaPipe Pose
 const pose = new Pose({
-  locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`,
+  locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5/${file}`,
 });
-
 pose.setOptions({
-  modelComplexity: 0,
+  modelComplexity: isMobile ? 0 : 1, // Lower complexity for mobile
   smoothLandmarks: true,
   enableSegmentation: false,
   minDetectionConfidence: 0.5,
-  minTrackingConfidence: 0.5,
+  minTrackingConfidence: 0.5, // Lower for better mobile performance
 });
-
 pose.onResults(onResults);
 
-// ====== CAMERA INITIALIZATION ======
-async function initializeCamera() {
+// Mobile-optimized camera initialization
+async function startCamera() {
   try {
-    console.log("🎥 Starting camera...");
+    // Check HTTPS for mobile
+    if (isMobile && window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
+      alert('📱 Camera requires HTTPS on mobile. Please use the secure URL.');
+      return;
+    }
 
-    const stream = await navigator.mediaDevices.getUserMedia({
+    // Mobile-optimized camera constraints
+    const constraints = {
       video: {
-        facingMode: "user", // front camera
-        width: { ideal: 720 },
-        height: { ideal: 960 },
-      },
-      audio: false,
-    });
+        facingMode: isMobile ? "environment" : "user", // Use back camera on mobile
+        width: { ideal: isMobile ? 640 : 1280 },
+        height: { ideal: isMobile ? 480 : 720 },
+        frameRate: { ideal: isMobile ? 24 : 30 } // Lower FPS for mobile performance
+      }
+    };
 
+    // Safari-specific constraints
+    if (isSafari) {
+      constraints.video.frameRate = { ideal: 20 };
+    }
+
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
     videoElement.srcObject = stream;
 
-    // ⚡️ Force play on mobile
-    await videoElement.play().catch((err) => console.warn("Autoplay failed:", err));
-
-    // Wait until ready
+    // Wait for video to be ready
     await new Promise((resolve) => {
-      if (videoElement.readyState >= 2) resolve();
-      else videoElement.onloadeddata = resolve;
+      videoElement.onloadedmetadata = () => {
+        resolve();
+      };
     });
 
-    console.log("✅ Video playing:", videoElement.videoWidth, "x", videoElement.videoHeight);
+    // Start MediaPipe processing
+    startMediaPipe();
 
-    const camera = new Camera(videoElement, {
-      onFrame: async () => {
-        if (videoElement.readyState >= 2) {
-          await pose.send({ image: videoElement });
-        }
-      },
-      width: 720,
-      height: 960,
-    });
-
-    await camera.start();
-    console.log("✅ Camera + Pose started");
-  } catch (error) {
-    console.error("❌ Camera init failed:", error);
-    alert("Camera access failed: " + error.message);
+  } catch (err) {
+    console.error('Camera error:', err);
+    handleCameraError(err);
   }
 }
 
-
-// ====== POSITION CONTROLS ======
-function adjustPosition(change) {
-  positionOffset = Math.max(-0.3, Math.min(0.3, positionOffset + change));
-  updatePositionDisplay();
+function startMediaPipe() {
+  const camera = new Camera(videoElement, {
+    onFrame: async () => {
+      try {
+        await pose.send({ image: videoElement });
+      } catch (error) {
+        console.error('MediaPipe frame error:', error);
+      }
+    },
+    width: isMobile ? 320 : 640, // Lower resolution for mobile
+    height: isMobile ? 240 : 480
+  });
+  camera.start().catch(error => {
+    console.error('Camera start failed:', error);
+    handleCameraError(error);
+  });
 }
 
-function resetPosition() {
-  positionOffset = 0.05;
-  updatePositionDisplay();
+function handleCameraError(error) {
+  let message = 'Camera error: ';
+  
+  switch (error.name) {
+    case 'NotAllowedError':
+      message = '📱 Camera access denied. Please allow camera permissions in your browser settings.';
+      break;
+    case 'NotFoundError':
+      message = '📱 No camera found on this device.';
+      break;
+    case 'NotSupportedError':
+      message = '📱 Camera not supported in this browser. Try Chrome or Safari.';
+      break;
+    case 'NotReadableError':
+      message = '📱 Camera is already in use by another application.';
+      break;
+    default:
+      message += error.message;
+  }
+  
+  alert(message);
+  console.error('Camera error details:', error);
 }
 
-function updatePositionDisplay() {
-  const display = document.getElementById("positionDisplay");
-  if (display) display.textContent = positionOffset.toFixed(2);
-}
-
-function addPositionControls() {
-  const controls = document.createElement("div");
-  controls.innerHTML = `
-    <div style="position: fixed; top: 10px; left: 10px; background: rgba(0,0,0,0.8); color: white; padding: 10px; z-index: 1000; border-radius: 10px; font-size: 14px;">
-      <div style="margin-bottom: 8px; font-weight: bold;">🎯 Position Adjust:</div>
-      <div style="margin-bottom: 5px;">Current: <span id="positionDisplay">${positionOffset.toFixed(2)}</span></div>
-      <button onclick="adjustPosition(-0.05)" style="margin: 2px; padding: 6px 10px; background: #4CAF50; color: white; border: none; border-radius: 5px;">⬆️ Higher</button>
-      <button onclick="adjustPosition(0.05)" style="margin: 2px; padding: 6px 10px; background: #2196F3; color: white; border: none; border-radius: 5px;">⬇️ Lower</button>
-      <button onclick="resetPosition()" style="margin: 2px; padding: 6px 10px; background: #ff9800; color: white; border: none; border-radius: 5px;">🔄 Reset</button>
+function showMobileInstructions() {
+  const instructions = `
+    <div class="mobile-instructions" style="
+      background: rgba(0,0,0,0.85);
+      color: white;
+      padding: 15px;
+      border-radius: 10px;
+      margin: 10px;
+      font-size: 14px;
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      right: 10px;
+      z-index: 1000;
+    ">
+      <h3 style="margin: 0 0 10px 0;">📱 Mobile Tips:</h3>
+      <ul style="margin: 0; padding-left: 20px;">
+        <li>Allow camera permissions when prompted</li>
+        <li>Use in <strong>landscape mode</strong> for best results</li>
+        <li>Hold phone steady for better tracking</li>
+        <li>Ensure good lighting</li>
+      </ul>
+      <button onclick="this.parentElement.remove()" style="
+        background: #007bff;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 5px;
+        margin-top: 10px;
+        cursor: pointer;
+      ">Got it!</button>
     </div>
   `;
-  document.body.appendChild(controls);
+  document.body.insertAdjacentHTML('afterbegin', instructions);
 }
 
-// ====== INITIALIZATION ======
-clothingImage.onload = () => {
-  selectedClothing = clothingImage;
-  console.log("👕 Default clothing loaded");
-};
-clothingImage.src = "shirt.png";
+// Add performance optimization for mobile
+if (isMobile) {
+  // Reduce rendering frequency on mobile
+  const originalOnResults = onResults;
+  let lastRenderTime = 0;
+  pose.onResults = (results) => {
+    const now = Date.now();
+    if (now - lastRenderTime > 66) { // ~15 FPS on mobile
+      originalOnResults(results);
+      lastRenderTime = now;
+    }
+  };
+}
 
-document.addEventListener("DOMContentLoaded", () => {
-  resizeCanvasToScreen();
-  addPositionControls();
-  initializeCamera();
+// Start camera when page loads
+document.addEventListener('DOMContentLoaded', () => {
+  // Small delay to ensure everything is loaded
+  setTimeout(startCamera, 500);
 });
 
-window.addEventListener("resize", resizeCanvasToScreen);
-
-window.addEventListener("beforeunload", () => {
+// Add cleanup function
+window.addEventListener('beforeunload', () => {
   if (videoElement.srcObject) {
-    videoElement.srcObject.getTracks().forEach((track) => track.stop());
+    videoElement.srcObject.getTracks().forEach(track => track.stop());
   }
 });
