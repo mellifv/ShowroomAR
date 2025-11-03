@@ -45,15 +45,16 @@ function onResults(results) {
     if (!videoElement.srcObject) return;
 
     const { width, height } = canvasElement;
-    canvasCtx.save();
     canvasCtx.clearRect(0, 0, width, height);
 
-    // Mirror horizontally (selfie style)
+    // 1) Draw mirrored camera feed (selfie style)
+    canvasCtx.save();
     canvasCtx.translate(width, 0);
     canvasCtx.scale(-1, 1);
     canvasCtx.drawImage(results.image, 0, 0, width, height);
     canvasCtx.restore();
 
+    // 2) Early-exit when no shirt or no pose
     if (!shirtLoaded || !results.poseLandmarks) {
         canvasCtx.fillStyle = 'white';
         canvasCtx.font = '18px Arial';
@@ -63,43 +64,51 @@ function onResults(results) {
         return;
     }
 
-    // Get relevant pose landmarks
-    const lShoulder = results.poseLandmarks[11];
-    const rShoulder = results.poseLandmarks[12];
-    const lHip = results.poseLandmarks[23];
-    const rHip = results.poseLandmarks[24];
-
-    // Convert normalized coords to pixels
-    function px(point) {
-        return { x: point.x * width, y: point.y * height };
+    // Helper: convert normalized landmark -> pixel coords in the MIRRORED canvas space
+    function pxMirrored(point) {
+        return {
+            x: (1 - point.x) * width, // mirror X so it matches the mirrored drawImage
+            y: point.y * height       // Y is the same (0 = top)
+        };
     }
-    const LS = px(lShoulder);
-    const RS = px(rShoulder);
-    const LH = px(lHip);
-    const RH = px(rHip);
 
-    // Average torso points
+    // Landmarks (mirrored pixel coords)
+    const LS = pxMirrored(results.poseLandmarks[11]); // left shoulder (visual left)
+    const RS = pxMirrored(results.poseLandmarks[12]); // right shoulder (visual right)
+    const LH = pxMirrored(results.poseLandmarks[23]); // left hip
+    const RH = pxMirrored(results.poseLandmarks[24]); // right hip
+
+    // Torso geometry
     const torsoTop = { x: (LS.x + RS.x) / 2, y: (LS.y + RS.y) / 2 };
     const torsoBottom = { x: (LH.x + RH.x) / 2, y: (LH.y + RH.y) / 2 };
 
-    // Compute scale and rotation
+    // width = shoulder distance, height = vertical torso distance
     const torsoWidth = Math.hypot(RS.x - LS.x, RS.y - LS.y);
-    const torsoHeight = Math.hypot(torsoBottom.x - torsoTop.x, torsoBottom.y - torsoTop.y);
+    // use vertical distance to keep shirt from rotating into weird shapes when user tilts head
+    const torsoHeight = Math.abs(torsoBottom.y - torsoTop.y);
+
+    // angle of the shoulder line (in radians)
     const angle = Math.atan2(RS.y - LS.y, RS.x - LS.x);
 
-    // Draw transformed shirt
+    // Tunable offsets/scale (adjust these to taste)
+    const widthScale = 1.9;   // how much wider than shoulder distance
+    const heightScale = 2.0;  // how tall relative to torsoHeight
+    const verticalOffsetFactor = 0.18; // push the shirt up/down relative to torsoTop
+
+    // Final draw: translate to torsoTop, rotate by shoulder angle, then draw
     canvasCtx.save();
     canvasCtx.translate(torsoTop.x, torsoTop.y);
     canvasCtx.rotate(angle);
-    canvasCtx.drawImage(
-        shirtImg,
-        -torsoWidth * 0.9,   // horizontal offset
-        -torsoHeight * 0.2,  // vertical offset
-        torsoWidth * 2,      // width scale
-        torsoHeight * 2      // height scale
-    );
+
+    const drawW = torsoWidth * widthScale;
+    const drawH = Math.max(20, torsoHeight * heightScale); // avoid zero height
+    const drawX = -drawW / 2;                 // center horizontally on torsoTop
+    const drawY = verticalOffsetFactor * -drawH; // small upward offset so neckline lines up
+
+    canvasCtx.drawImage(shirtImg, drawX, drawY, drawW, drawH);
     canvasCtx.restore();
 }
+
 
 
 // Setup MediaPipe Pose
