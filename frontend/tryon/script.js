@@ -195,7 +195,7 @@ function onResults(results) {
       selected?.title ||
       selected?.image || ""
     ).toLowerCase();
-    const isBottom = /trouser|pant|jean|short|bottom|legging/.test(itemName);
+    const isBottom = /trouser|pant|jean|short|bottom|skirt|legging/.test(itemName);
     const isShort = /short/.test(itemName);
 
     if (!isBottom) {
