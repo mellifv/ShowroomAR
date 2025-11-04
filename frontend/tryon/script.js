@@ -189,7 +189,7 @@ function onResults(results) {
     ).toLowerCase();
     
     // Add the missing isShort variable
-    const isBottom = /trouser|pant|jean|bottom|legging|skirt/.test(itemName);
+    const isBottom = /trouser|pant|jean|bottom|legging/.test(itemName);
     const isShort = /short/.test(itemName);
     const isSkirt = /skirt/.test(itemName);
 
