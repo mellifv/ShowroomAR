@@ -187,9 +187,7 @@ function onResults(results) {
       selected?.title ||
       selected?.image || ""
     ).toLowerCase();
-    const isBottom = /trouser|pant|jean|short|bottom|legging|skirt/.test(itemName);
-    const isShort = /short/.test(itemName);
-
+    const isBottom = /trouser|pant|jean|bottom|legging|skirt/.test(itemName);
     if (!isBottom) {
         // --- SHIRT / JACKET ---
         const torsoTop = { x: (LS.x + RS.x) / 2, y: (LS.y + RS.y) / 2 };
