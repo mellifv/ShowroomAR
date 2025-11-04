@@ -187,9 +187,35 @@ function onResults(results) {
       selected?.title ||
       selected?.image || ""
     ).toLowerCase();
+    
+    // Add the missing isShort variable
     const isBottom = /trouser|pant|jean|bottom|legging|skirt/.test(itemName);
+    const isShort = /short/.test(itemName);
     const isSkirt = /skirt/.test(itemName);
-    if (!isBottom) {
+
+    if (isSkirt) {
+        // --- SKIRT --- (positioned at waist, flows down like trousers but wider)
+        const hipMid = { x: (LH.x + RH.x) / 2, y: (LH.y + RH.y) / 2 };
+        const ankleMid = { x: (LA.x + RA.x) / 2, y: (LA.y + RA.y) / 2 };
+        
+        const waistWidth = Math.hypot(RH.x - LH.x, RH.y - LH.y);
+        const legHeight = Math.abs(ankleMid.y - hipMid.y);
+        const angle = Math.atan2(RH.y - LH.y, RH.x - LH.x);
+
+        canvasCtx.save();
+        canvasCtx.translate(hipMid.x, hipMid.y);
+        canvasCtx.rotate(angle);
+
+        // Skirt specific dimensions - wider at bottom, positioned at waist
+        const drawW = waistWidth * 2.2;  // Wider than trousers for skirt flow
+        const drawH = Math.max(40, legHeight * 1.3); // Similar length to trousers
+        const drawX = -drawW / 2;
+        const drawY = -drawH * 0.2;  // Position slightly higher at waist
+
+        canvasCtx.drawImage(shirtImg, drawX, drawY, drawW, drawH);
+        canvasCtx.restore();
+        
+    } else if (!isBottom) {
         // --- SHIRT / JACKET ---
         const torsoTop = { x: (LS.x + RS.x) / 2, y: (LS.y + RS.y) / 2 };
         const torsoBottom = { x: (LH.x + RH.x) / 2, y: (LH.y + RH.y) / 2 };
@@ -230,30 +256,7 @@ function onResults(results) {
             drawW = waistWidth * 1.8; // Wider for shorts
             drawH = Math.max(30, Math.abs(kneeMid.y - hipMid.y) * 1.2); // Shorter length
             drawY = -drawH * 0.1; // Position slightly above hips for better fit
-        } 
-        else if (isSkirt) {
-            // --- SKIRT --- (positioned at waist, flows down like trousers but wider)
-            const hipMid = { x: (LH.x + RH.x) / 2, y: (LH.y + RH.y) / 2 };
-            const kneeMid = { x: (LK.x + RK.x) / 2, y: (LK.y + RK.y) / 2 };
-            const ankleMid = { x: (LA.x + RA.x) / 2, y: (LA.y + RA.y) / 2 };
-            
-            const waistWidth = Math.hypot(RH.x - LH.x, RH.y - LH.y);
-            const legHeight = Math.abs(ankleMid.y - hipMid.y);
-            const angle = Math.atan2(RH.y - LH.y, RH.x - LH.x);
-        
-            canvasCtx.save();
-            canvasCtx.translate(hipMid.x, hipMid.y);
-            canvasCtx.rotate(angle);
-        
-            // Skirt specific dimensions - wider at bottom, positioned at waist
-            const drawW = waistWidth * 2.2;  // Wider than trousers for skirt flow
-            const drawH = Math.max(40, legHeight * 1.3); // Similar length to trousers
-            const drawX = -drawW / 2;
-            const drawY = -drawH * 0.2;  // Position slightly higher at waist
-        
-            canvasCtx.drawImage(shirtImg, drawX, drawY, drawW, drawH);
-            canvasCtx.restore();}
-        else {
+        } else {
             // For trousers/pants - extend to ankles
             drawW = waistWidth * 2.5; // Slightly narrower than shorts
             drawH = Math.max(40, legHeight * 1.4); // Longer length
