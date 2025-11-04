@@ -1,10 +1,13 @@
+
+
+// Use your actual API URL here
+const API_BASE_URL = "https://showroomar-production.up.railway.app/api";
 const videoElement = document.getElementById("input_video");
 const canvasElement = document.getElementById("output_canvas");
 const canvasCtx = canvasElement.getContext("2d");
 const clothingSelect = document.getElementById("clothingSelect");
 
-// Use your actual API URL here
-const API_BASE_URL = "https://showroomar-production.up.railway.app/api";
+
 
 let products = [];
 let selected = null;
@@ -124,8 +127,13 @@ console.log('🚀 Try-on script loaded');
 // Initialize shirt image with default or saved selection
 if (selected && selected.image) {
     shirtImg.src = selected.image;
-} 
-
+} else {
+    shirtImg.src = "shirt.png"; // Your default image
+}
+shirtImg.onload = () => {
+    shirtLoaded = true;
+    console.log('Default shirt image loaded');
+};
 
 // Keep canvas aspect ratio correct for mobile
 function resizeCanvasToVideo() {
@@ -145,7 +153,6 @@ function resizeCanvasToVideo() {
     }
 }
 
-// Main drawing function
 // Main drawing function
 function onResults(results) {
     if (!videoElement.srcObject) return;
@@ -188,41 +195,11 @@ function onResults(results) {
       selected?.title ||
       selected?.image || ""
     ).toLowerCase();
-    
-    // FIXED: Separate detection logic
-    const isSkirt = /skirt/.test(itemName);
+    const isBottom = /trouser|pant|jean|short|bottom|legging/.test(itemName);
     const isShort = /short/.test(itemName);
-    const isBottom = /trouser|pant|jean|bottom|legging/.test(itemName); // REMOVED skirt from here
-    const isTop = !isSkirt && !isBottom; // Tops are anything that's not skirt or bottom
 
-    console.log('Item detection:', { itemName, isSkirt, isBottom, isTop }); // Debug log
-
-    if (isSkirt) {
-        // --- SKIRT ---
-        console.log('Drawing skirt'); // Debug log
-        const hipMid = { x: (LH.x + RH.x) / 2, y: (LH.y + RH.y) / 2 };
-        const ankleMid = { x: (LA.x + RA.x) / 2, y: (LA.y + RA.y) / 2 };
-        
-        const waistWidth = Math.hypot(RH.x - LH.x, RH.y - LH.y);
-        const legHeight = Math.abs(ankleMid.y - hipMid.y);
-        const angle = Math.atan2(RH.y - LH.y, RH.x - LH.x);
-
-        canvasCtx.save();
-        canvasCtx.translate(hipMid.x, hipMid.y);
-        canvasCtx.rotate(angle);
-
-        // Skirt specific dimensions
-        const drawW = waistWidth * 2;
-        const drawH = Math.max(40, legHeight * 1.3);
-        const drawX = -drawW / 2;
-        const drawY = 0;
-
-        canvasCtx.drawImage(shirtImg, drawX, drawY, drawW, drawH);
-        canvasCtx.restore();
-        
-    } else if (isTop) {
+    if (!isBottom) {
         // --- SHIRT / JACKET ---
-        console.log('Drawing top'); // Debug log
         const torsoTop = { x: (LS.x + RS.x) / 2, y: (LS.y + RS.y) / 2 };
         const torsoBottom = { x: (LH.x + RH.x) / 2, y: (LH.y + RH.y) / 2 };
         const torsoWidth = Math.hypot(RS.x - LS.x, RS.y - LS.y);
@@ -240,9 +217,8 @@ function onResults(results) {
 
         canvasCtx.drawImage(shirtImg, drawX, drawY, drawW, drawH);
         canvasCtx.restore();
-    } else if (isBottom) {
+    } else {
         // --- TROUSERS / SHORTS ---
-        console.log('Drawing bottom'); // Debug log
         const hipMid = { x: (LH.x + RH.x) / 2, y: (LH.y + RH.y) / 2 };
         const kneeMid = { x: (LK.x + RK.x) / 2, y: (LK.y + RK.y) / 2 };
         const ankleMid = { x: (LA.x + RA.x) / 2, y: (LA.y + RA.y) / 2 };
@@ -255,25 +231,28 @@ function onResults(results) {
         canvasCtx.translate(hipMid.x, hipMid.y);
         canvasCtx.rotate(angle);
 
+        // Calculate dimensions based on whether it's shorts or trousers
         let drawW, drawH, drawY;
         
         if (isShort) {
-            // For shorts
-            drawW = waistWidth * 1.8;
-            drawH = Math.max(30, Math.abs(kneeMid.y - hipMid.y) * 1.2);
-            drawY = -drawH * 0.1;
+            // For shorts - extend to just below knees
+            drawW = waistWidth * 1.8; // Wider for shorts
+            drawH = Math.max(30, Math.abs(kneeMid.y - hipMid.y) * 1.2); // Shorter length
+            drawY = -drawH * 0.1; // Position slightly above hips for better fit
         } else {
-            // For trousers/pants
-            drawW = waistWidth * 2.5;
-            drawH = Math.max(40, legHeight * 1.4);
-            drawY = -drawH * 0.15;
+            // For trousers/pants - extend to ankles
+            drawW = waistWidth * 2.5; // Slightly narrower than shorts
+            drawH = Math.max(40, legHeight * 1.4); // Longer length
+            drawY = -drawH * 0.15; // Position at hips with slight overlap
         }
 
         const drawX = -drawW / 2;
+
         canvasCtx.drawImage(shirtImg, drawX, drawY, drawW, drawH);
         canvasCtx.restore();
     }
 }
+
 // Setup MediaPipe Pose
 const pose = new Pose({
     locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5/${file}`,
