@@ -212,10 +212,10 @@ function onResults(results) {
         canvasCtx.rotate(angle);
 
         // Skirt specific dimensions
-        const drawW = waistWidth * 2.2;
+        const drawW = waistWidth * 2;
         const drawH = Math.max(40, legHeight * 1.3);
         const drawX = -drawW / 2;
-        const drawY = -drawH * 0.2;
+        const drawY = 0;
 
         canvasCtx.drawImage(shirtImg, drawX, drawY, drawW, drawH);
         canvasCtx.restore();
