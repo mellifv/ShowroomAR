@@ -89,7 +89,7 @@ function populateClothingSelect() {
     });
 }
 
-// Function to handle product selection - FIXED VERSION
+// SIMPLE & CORRECT - Uses the full public_id from image field
 function selectProduct(productId) {
     const product = products.find(p => p._id === productId);
     if (product) {
@@ -97,42 +97,22 @@ function selectProduct(productId) {
         // Save to localStorage
         localStorage.setItem("selectedModel", JSON.stringify(product));
         
-        // Use Cloudinary public_id to load image - FIXED LOGIC
-        if (product.cloudinary_public_id) {
-            shirtImg.src = getCloudinaryUrl(product.cloudinary_public_id);
-            console.log('🔄 Loading from Cloudinary:', product.cloudinary_public_id);
-            console.log('📦 Cloudinary URL:', getCloudinaryUrl(product.cloudinary_public_id));
-        } else if (product.image) {
-            // If no cloudinary_public_id but has image field, check if it's already a full URL
-            if (product.image.startsWith('http')) {
-                shirtImg.src = product.image;
-                console.log('🔄 Loading from full URL:', product.image);
-            } else {
-                // If it's just a filename, try Cloudinary with it
-                shirtImg.src = getCloudinaryUrl(product.image.replace('.png', ''));
-                console.log('🔄 Trying Cloudinary with image field:', product.image);
-            }
-        } else {
-            console.error('❌ No image data available for product:', product.name);
-            alert('No image available for this product.');
-            return;
-        }
+        // Use the image field directly as Cloudinary public_id
+        shirtImg.src = getCloudinaryUrl(product.image);
+        console.log('🔄 Loading:', product.image);
+        console.log('📦 Cloudinary URL:', shirtImg.src);
         
         shirtImg.onload = () => {
             shirtLoaded = true;
             updateSelectedProductInfo(product);
-            console.log(`✅ Loaded: ${product.name}`);
+            console.log(`✅ Successfully loaded: ${product.name}`);
         };
+        
         shirtImg.onerror = () => {
-            console.error('❌ Error loading product image');
-            console.error('Product data:', product);
-            console.error('Tried URL:', shirtImg.src);
-            
-            // Try fallback to direct Cloudinary search
-            const fallbackUrl = `https://res.cloudinary.com/djwoojdrl/image/upload/${product.cloudinary_public_id || product.image}`;
-            console.log('🔄 Trying fallback URL:', fallbackUrl);
-            
-            shirtImg.src = fallbackUrl;
+            console.error('❌ Failed to load:', product.image);
+            console.error('Full URL:', shirtImg.src);
+            alert('Image not found in Cloudinary. Please check if the image was uploaded.');
+            shirtLoaded = false;
         };
     }
 }
