@@ -1,18 +1,21 @@
-
-
 // Use your actual API URL here
 const API_BASE_URL = "https://showroomar-production.up.railway.app/api";
+const CLOUDINARY_BASE = "https://res.cloudinary.com/djwoojdrl/image/upload";
+
 const videoElement = document.getElementById("input_video");
 const canvasElement = document.getElementById("output_canvas");
 const canvasCtx = canvasElement.getContext("2d");
 const clothingSelect = document.getElementById("clothingSelect");
 
-
-
 let products = [];
 let selected = null;
 let shirtImg = new Image();
 let shirtLoaded = false;
+
+// Function to get Cloudinary URL from public_id
+function getCloudinaryUrl(publicId, width = 800, height = 1200) {
+    return `${CLOUDINARY_BASE}/w_${width},h_${height},c_fill,f_auto,q_auto/${publicId}`;
+}
 
 // Function to update selected product info display
 function updateSelectedProductInfo(product) {
@@ -37,8 +40,8 @@ function loadSavedSelection() {
     if (saved) {
         selected = JSON.parse(saved);
         // If there's a saved selection, load it
-        if (selected && selected.image) {
-            shirtImg.src = selected.image;
+        if (selected && selected.cloudinary_public_id) {
+            shirtImg.src = getCloudinaryUrl(selected.cloudinary_public_id);
             shirtImg.onload = () => {
                 shirtLoaded = true;
                 updateSelectedProductInfo(selected);
@@ -89,14 +92,22 @@ function selectProduct(productId) {
         // Save to localStorage
         localStorage.setItem("selectedModel", JSON.stringify(product));
         
-        shirtImg.src = product.image;
+        // Use Cloudinary public_id to load image
+        if (product.cloudinary_public_id) {
+            shirtImg.src = getCloudinaryUrl(product.cloudinary_public_id);
+        } else {
+            // Fallback to old image field if public_id doesn't exist
+            shirtImg.src = product.image;
+            console.warn('⚠️ Using legacy image field, consider updating to cloudinary_public_id');
+        }
+        
         shirtImg.onload = () => {
             shirtLoaded = true;
             updateSelectedProductInfo(product);
             console.log(`Loaded: ${product.name}`);
         };
         shirtImg.onerror = () => {
-            console.error('Error loading product image:', product.image);
+            console.error('Error loading product image:', product.cloudinary_public_id || product.image);
             alert('Error loading product image. Please try another product.');
             shirtLoaded = false;
             selected = null;
@@ -125,10 +136,11 @@ loadProductsForTryOn();
 console.log('🚀 Try-on script loaded');
 
 // Initialize shirt image with default or saved selection
-if (selected && selected.image) {
-    shirtImg.src = selected.image;
+if (selected && selected.cloudinary_public_id) {
+    shirtImg.src = getCloudinaryUrl(selected.cloudinary_public_id);
 } else {
-    shirtImg.src = "shirt.png"; // Your default image
+    // Fallback to default image using Cloudinary
+    shirtImg.src = getCloudinaryUrl("shirt.png"); // Make sure this exists in Cloudinary
 }
 shirtImg.onload = () => {
     shirtLoaded = true;
@@ -193,7 +205,7 @@ function onResults(results) {
       selected?.name ||
       selected?.product_name ||
       selected?.title ||
-      selected?.image || ""
+      "" 
     ).toLowerCase();
     const isBottom = /trouser|pant|jean|short|bottom|legging/.test(itemName);
     const isShort = /short/.test(itemName);
