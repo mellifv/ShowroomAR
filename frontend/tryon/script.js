@@ -1,13 +1,17 @@
 // Use your actual API URL here
 const API_BASE_URL = "https://showroomar-production.up.railway.app/api";
-// At the top of script.js
-import { Cloudinary } from "@cloudinary/url-gen";        // (A) add this import
 
-const cld = new Cloudinary({                            // (B) configure Cloudinary
-  cloud: {
-    cloudName: "djwoojdrl"                        // replace with your Cloudinary cloud name
-  }
-});
+// Cloudinary helper function
+function getCloudinaryUrl(publicId, width = 800, height = 1200) {
+    if (!publicId) return "";                           // fallback if missing
+    publicId = publicId.replace(/^\//, "");             // remove leading slash if present
+    // Build the Cloudinary URL directly
+    return `https://res.cloudinary.com/djwoojdrl/image/upload/w_${width},h_${height},c_fill,f_auto,q_auto/${publicId}.png`;
+}
+
+// Example usage:
+// shirtImg.src = getCloudinaryUrl("clothes/jacket/myjacketpublicid");
+
 
 
 const videoElement = document.getElementById("input_video");
@@ -22,16 +26,12 @@ let shirtLoaded = false;
 
 // Function to get Cloudinary URL from public_id
 // Replace your getCloudinaryUrl function with this:
-function getCloudinaryUrl(publicId, width = 800, height = 1200) {
-    if (!publicId) return "";                           // fallback if missing
-    publicId = publicId.replace(/^\//, "");             // remove leading slash if present
-    // Use SDK to generate URL instead of manual string
-    return cld.image(publicId)
-             .resize("fill", {width: width, height: height})  // using fill resizing
-             .format("auto")                                  // auto format
-             .quality("auto")                                 // auto quality
-             .toURL();
+if (product.cloudinary_public_id) {
+    shirtImg.src = getCloudinaryUrl(product.cloudinary_public_id);
+} else {
+    shirtImg.src = product.image; // fallback if needed
 }
+
 
 
 // Function to update selected product info display
