@@ -9,7 +9,7 @@ function getCloudinaryUrl(publicId, width = 800, height = 1200) {
     publicId = publicId.replace(/^\//, "").replace(/\.png$/, "");
     
     // Build the Cloudinary URL - NO .png extension added
-    return `https://res.cloudinary.com/djwoojdrl/image/upload/w_${width},h_${height},c_fill,f_auto,q_auto/${publicId}`;
+    return `https://res.cloudinary.com/djwoojdrl/image/upload/${publicId}`;
 }
 
 const videoElement = document.getElementById("input_video");
