@@ -1,6 +1,14 @@
 // Use your actual API URL here
 const API_BASE_URL = "https://showroomar-production.up.railway.app/api";
-const CLOUDINARY_BASE = "https://res.cloudinary.com/djwoojdrl/image/upload";
+// At the top of script.js
+import { Cloudinary } from "@cloudinary/url-gen";        // (A) add this import
+
+const cld = new Cloudinary({                            // (B) configure Cloudinary
+  cloud: {
+    cloudName: "djwoojdrl"                        // replace with your Cloudinary cloud name
+  }
+});
+
 
 const videoElement = document.getElementById("input_video");
 const canvasElement = document.getElementById("output_canvas");
@@ -13,9 +21,18 @@ let shirtImg = new Image();
 let shirtLoaded = false;
 
 // Function to get Cloudinary URL from public_id
+// Replace your getCloudinaryUrl function with this:
 function getCloudinaryUrl(publicId, width = 800, height = 1200) {
-    return `${CLOUDINARY_BASE}/w_${width},h_${height},c_fill,f_auto,q_auto/${publicId}`;
+    if (!publicId) return "";                           // fallback if missing
+    publicId = publicId.replace(/^\//, "");             // remove leading slash if present
+    // Use SDK to generate URL instead of manual string
+    return cld.image(publicId)
+             .resize("fill", {width: width, height: height})  // using fill resizing
+             .format("auto")                                  // auto format
+             .quality("auto")                                 // auto quality
+             .toURL();
 }
+
 
 // Function to update selected product info display
 function updateSelectedProductInfo(product) {
