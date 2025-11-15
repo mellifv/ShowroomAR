@@ -136,16 +136,17 @@ loadProductsForTryOn();
 console.log('🚀 Try-on script loaded');
 
 // Initialize shirt image with default or saved selection
-if (selected && selected.cloudinary_public_id) {
-    shirtImg.src = getCloudinaryUrl(selected.cloudinary_public_id);
+if (selected && selected.image) {
+    shirtImg.src = getCloudinaryUrl(selected.image);
 } else {
-    // Fallback to default image using Cloudinary
-    shirtImg.src = getCloudinaryUrl("shirt"); // Remove .png extension
+    // Make sure you have a default image in Cloudinary
+    shirtImg.src = getCloudinaryUrl("clothes/shirt/RedShirt_dkyvmdt"); // Update this path
 }
 shirtImg.onload = () => {
     shirtLoaded = true;
     console.log('✅ Default shirt image loaded');
 };
+
 
 // Keep canvas aspect ratio correct for mobile
 function resizeCanvasToVideo() {
