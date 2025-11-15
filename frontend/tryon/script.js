@@ -1,18 +1,16 @@
 // Use your actual API URL here
 const API_BASE_URL = "https://showroomar-production.up.railway.app/api";
 
-// Cloudinary helper function
+// Cloudinary helper function - FIXED VERSION
 function getCloudinaryUrl(publicId, width = 800, height = 1200) {
-    if (!publicId) return "";                           // fallback if missing
-    publicId = publicId.replace(/^\//, "");             // remove leading slash if present
-    // Build the Cloudinary URL directly
-    return `https://res.cloudinary.com/djwoojdrl/image/upload/w_${width},h_${height},c_fill,f_auto,q_auto/${publicId}.png`;
+    if (!publicId) return "";
+    
+    // Remove leading slash and .png extension if present
+    publicId = publicId.replace(/^\//, "").replace(/\.png$/, "");
+    
+    // Build the Cloudinary URL - NO .png extension added
+    return `https://res.cloudinary.com/djwoojdrl/image/upload/w_${width},h_${height},c_fill,f_auto,q_auto/${publicId}`;
 }
-
-// Example usage:
-// shirtImg.src = getCloudinaryUrl("clothes/jacket/myjacketpublicid");
-
-
 
 const videoElement = document.getElementById("input_video");
 const canvasElement = document.getElementById("output_canvas");
@@ -23,16 +21,6 @@ let products = [];
 let selected = null;
 let shirtImg = new Image();
 let shirtLoaded = false;
-
-// Function to get Cloudinary URL from public_id
-// Replace your getCloudinaryUrl function with this:
-if (product.cloudinary_public_id) {
-    shirtImg.src = getCloudinaryUrl(product.cloudinary_public_id);
-} else {
-    shirtImg.src = product.image; // fallback if needed
-}
-
-
 
 // Function to update selected product info display
 function updateSelectedProductInfo(product) {
@@ -112,6 +100,7 @@ function selectProduct(productId) {
         // Use Cloudinary public_id to load image
         if (product.cloudinary_public_id) {
             shirtImg.src = getCloudinaryUrl(product.cloudinary_public_id);
+            console.log('🔄 Loading Cloudinary image:', product.cloudinary_public_id);
         } else {
             // Fallback to old image field if public_id doesn't exist
             shirtImg.src = product.image;
@@ -121,10 +110,11 @@ function selectProduct(productId) {
         shirtImg.onload = () => {
             shirtLoaded = true;
             updateSelectedProductInfo(product);
-            console.log(`Loaded: ${product.name}`);
+            console.log(`✅ Loaded: ${product.name}`);
         };
         shirtImg.onerror = () => {
-            console.error('Error loading product image:', product.cloudinary_public_id || product.image);
+            console.error('❌ Error loading product image:', product.cloudinary_public_id || product.image);
+            console.error('❌ Tried URL:', shirtImg.src);
             alert('Error loading product image. Please try another product.');
             shirtLoaded = false;
             selected = null;
@@ -157,11 +147,11 @@ if (selected && selected.cloudinary_public_id) {
     shirtImg.src = getCloudinaryUrl(selected.cloudinary_public_id);
 } else {
     // Fallback to default image using Cloudinary
-    shirtImg.src = getCloudinaryUrl("shirt.png"); // Make sure this exists in Cloudinary
+    shirtImg.src = getCloudinaryUrl("shirt"); // Remove .png extension
 }
 shirtImg.onload = () => {
     shirtLoaded = true;
-    console.log('Default shirt image loaded');
+    console.log('✅ Default shirt image loaded');
 };
 
 // Keep canvas aspect ratio correct for mobile
