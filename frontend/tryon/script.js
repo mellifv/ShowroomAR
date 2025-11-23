@@ -209,7 +209,7 @@ function onResults(results) {
       "" 
     ).toLowerCase();
     const isBottom = /trouser|pant|jean|short|bottom|legging/.test(itemName);
-    const isShort = /short/.test(itemName);
+    const isShort = /skirt|short/.test(itemName);
 
     if (!isBottom) {
         // --- SHIRT / JACKET ---
