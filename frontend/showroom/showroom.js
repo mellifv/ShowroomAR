@@ -1,191 +1,29 @@
-import { API } from "../js/api.js";
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Showroom Products | VestaWear</title>
+    <link rel="stylesheet" href="showroom.css">
+</head>
+<body>
+    <header>
+        <h1 class="logo">VestaWear</h1>
+        <nav>
+            <a href="../index/index.html">Home</a>
+            <a href="../categories/categories.html">Categories</a>
+            <a href="../tryon/tryon.html">Try On</a>
+            <a href="showroom.html">Showrooms</a>
+        </nav>
+    </header>
 
-const params = new URLSearchParams(window.location.search);
-const showroomId = params.get("id");
+    <main class="showroom-products-container">
+        <h2 id="showroom-name">Loading...</h2>
+        <div class="products-grid" id="product-list">
+            <!-- Products will be loaded here -->
+        </div>
+    </main>
 
-console.log('Showroom ID:', showroomId);
-// CORRECT Cloudinary URL function
-function getCloudinaryUrl(publicId, width = 400, height = 600) {
-    if (!publicId) return "../images/default-product.png";
-    
-    // Clean the public_id - remove any file extensions and leading slashes
-    publicId = publicId.replace(/^\//, "").replace(/\.(png|jpg|jpeg|webp)$/i, "");
-    
-    // Build the Cloudinary URL with transformations
-    return `https://res.cloudinary.com/djwoojdrl/image/upload/w_${width},h_${height},c_fill/${publicId}`;
-}
-
-async function loadProducts() {
-  try {
-    console.log('Loading products for showroom:', showroomId);
-    
-    if (!showroomId) {
-      console.log('No showroom ID provided');
-      document.getElementById("showroom-name").textContent = "Select a Showroom";
-      document.getElementById("product-list").innerHTML = "<p>Please select a showroom first.</p>";
-      return;
-    }
-
-    const products = await API.getProductsByShowroom(showroomId);
-    console.log('Products loaded:', products);
-    
-    if (!products || products.length === 0) {
-      document.getElementById("showroom-name").textContent = "No Products Found";
-      document.getElementById("product-list").innerHTML = "<p>No products available in this showroom.</p>";
-      return;
-    }
-
-    document.getElementById("showroom-name").textContent = products[0]?.showroom?.name || "Collection";
-    
-    // FIXED: Use getCloudinaryUrl() for product images
-    document.getElementById("product-list").innerHTML = products.map(p => `
-      <div class="product-card">
-        <img src="${getCloudinaryUrl(p.image)}" alt="${p.name}" 
-             onerror="this.src='../images/default-product.png'">
-        <h3>${p.name}</h3>
-        <p>${p.category}</p>
-        <p><b>$${p.price}</b></p>
-        <button class="btn" onclick="tryOnProduct('${p._id}')">Try On</button>
-        <button class="btn" onclick="addToCart('${p._id}', '${p.name}', ${p.price})">Add to Cart</button>
-      </div>
-    `).join("");
-    
-  } catch (error) {
-    console.error('Error loading products:', error);
-    document.getElementById("product-list").innerHTML = "<p>Error loading products.</p>";
-  }
-}
-
-// Message display function
-function showMessage(message, type = 'success') {
-  console.log('Showing message:', message, type);
-  
-  // Create message element if it doesn't exist
-  let messageDiv = document.getElementById('cart-message');
-  if (!messageDiv) {
-    messageDiv = document.createElement('div');
-    messageDiv.id = 'cart-message';
-    messageDiv.style.cssText = `
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      padding: 1rem 1.5rem;
-      border-radius: 5px;
-      color: white;
-      font-weight: bold;
-      z-index: 1000;
-      max-width: 300px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-      transition: all 0.3s ease;
-    `;
-    document.body.appendChild(messageDiv);
-  }
-
-  // Set message style based on type
-  if (type === 'success') {
-    messageDiv.style.background = '#27ae60';
-  } else if (type === 'error') {
-    messageDiv.style.background = '#e74c3c';
-  } else {
-    messageDiv.style.background = '#3498db';
-  }
-
-  messageDiv.textContent = message;
-  messageDiv.style.display = 'block';
-
-  // Auto hide after 3 seconds
-  setTimeout(() => {
-    messageDiv.style.display = 'none';
-  }, 3000);
-}
-
-// Update cart counter
-function updateCartCounter() {
-  const cart = JSON.parse(localStorage.getItem("cart")) || [];
-  const totalItems = cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
-  
-  console.log('Updating cart counter. Total items:', totalItems);
-  
-  // Update counter in navigation
-  let counter = document.getElementById('cart-counter');
-  if (!counter) {
-    // Create counter if it doesn't exist
-    const navAuth = document.querySelector('.nav-auth');
-    if (navAuth) {
-      counter = document.createElement('span');
-      counter.id = 'cart-counter';
-      counter.style.cssText = `
-        background: #e74c3c;
-        color: white;
-        border-radius: 50%;
-        padding: 2px 6px;
-        font-size: 0.8rem;
-        margin-left: 5px;
-      `;
-      
-      const cartLink = document.querySelector('a[href*="cart.html"]');
-      if (cartLink) {
-        cartLink.appendChild(counter);
-      }
-    }
-  }
-  
-  if (counter) {
-    counter.textContent = totalItems;
-    counter.style.display = totalItems > 0 ? 'inline' : 'none';
-  }
-}
-
-// Add to cart function
-window.addToCart = (id, name, price) => {
-  console.log('Add to cart clicked:', { id, name, price });
-  
-  try {
-    const cart = JSON.parse(localStorage.getItem("cart")) || [];
-    console.log('Current cart:', cart);
-    
-    // Check if item already exists
-    const existingItem = cart.find(item => item.id === id);
-    if (existingItem) {
-      existingItem.quantity = (existingItem.quantity || 1) + 1;
-      console.log('Increased quantity for existing item:', existingItem);
-    } else {
-      cart.push({ 
-        id, 
-        name, 
-        price, 
-        quantity: 1 
-      });
-      console.log('Added new item to cart');
-    }
-    
-    localStorage.setItem("cart", JSON.stringify(cart));
-    console.log('Updated cart saved to localStorage');
-    
-    // Show success message
-    showMessage(`"${name}" added to cart!`, 'success');
-    
-    // Update cart counter
-    updateCartCounter();
-    
-  } catch (error) {
-    console.error('Error adding to cart:', error);
-    showMessage('Failed to add item to cart', 'error');
-  }
-};
-
-// Try on function
-window.tryOn = (image) => {
-  console.log('Try on clicked for image:', image);
-  localStorage.setItem("selectedModel", JSON.stringify({ image }));
-  window.location.href = "../tryon/tryon.html";
-};
-
-// Initialize cart counter on page load
-document.addEventListener('DOMContentLoaded', function() {
-  console.log('Page loaded, initializing cart counter...');
-  updateCartCounter();
-});
-
-// Load products
-loadProducts();
+    <script type="module" src="showroom.js"></script>
+</body>
+</html>
