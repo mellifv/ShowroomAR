@@ -22,6 +22,16 @@ let selected = null;
 let shirtImg = new Image();
 let shirtLoaded = false;
 
+// Check if camera permission was previously granted
+function hasCameraPermission() {
+    return localStorage.getItem('cameraPermission') === 'granted';
+}
+
+// Save camera permission status
+function saveCameraPermission() {
+    localStorage.setItem('cameraPermission', 'granted');
+}
+
 // Function to update selected product info display
 function updateSelectedProductInfo(product) {
     const infoDiv = document.getElementById('selectedProductInfo');
@@ -146,7 +156,6 @@ shirtImg.onload = () => {
     shirtLoaded = true;
     console.log('✅ Default shirt image loaded');
 };
-
 
 // Keep canvas aspect ratio correct for mobile
 function resizeCanvasToVideo() {
@@ -295,6 +304,9 @@ async function startCamera() {
         videoElement.style.display = 'none';
         videoElement.srcObject = stream;
 
+        // Save permission to localStorage
+        saveCameraPermission();
+
         await new Promise((resolve) => {
             videoElement.onloadedmetadata = () => {
                 resizeCanvasToVideo();
@@ -306,8 +318,10 @@ async function startCamera() {
         startMediaPipeProcessing();
     } catch (error) {
         console.error('❌ Camera start failed:', error);
-        alert('Camera error: ' + error.message);
-        updateStartButton('error');
+        // Don't show alert for common permission errors
+        if (error.name !== 'NotAllowedError') {
+            alert('Camera error: ' + error.message);
+        }
     }
 }
 
@@ -327,18 +341,28 @@ function startMediaPipeProcessing() {
 
     camera.start().then(() => {
         console.log('✅ MediaPipe started');
-        updateStartButton('success');
     }).catch((error) => {
         console.error('❌ MediaPipe failed:', error);
-        updateStartButton('error');
     });
 }
 
-// Start button UI
-let startButton = null;
+// Initialize - automatically start camera if permission was previously granted
+document.addEventListener('DOMContentLoaded', async () => {
+    console.log('📄 Page loaded');
+    
+    // Check if camera permission was previously granted
+    if (hasCameraPermission()) {
+        console.log('🔑 Camera permission remembered - starting automatically');
+        await startCamera();
+    } else {
+        // Only show start button if no permission was granted
+        setupStartButton();
+    }
+});
 
+// Simple fallback start button (only shows if no permission)
 function setupStartButton() {
-    startButton = document.createElement('button');
+    const startButton = document.createElement('button');
     startButton.textContent = '🎥 Start Camera';
     startButton.style.cssText = `
         position: fixed;
@@ -361,31 +385,15 @@ function setupStartButton() {
         startButton.textContent = 'Starting...';
         startButton.disabled = true;
         await startCamera();
+        
+        // Hide button after successful start
+        setTimeout(() => {
+            startButton.style.display = 'none';
+        }, 2000);
     };
 
     document.body.appendChild(startButton);
 }
-
-function updateStartButton(status) {
-    if (!startButton) return;
-    if (status === 'success') {
-        startButton.textContent = '✅ Camera Active';
-        startButton.style.background = '#4caf50';
-        setTimeout(() => {
-            startButton.style.display = 'none';
-        }, 2000);
-    } else if (status === 'error') {
-        startButton.textContent = '🔄 Try Again';
-        startButton.disabled = false;
-        startButton.style.background = '#ff4444';
-    }
-}
-
-// Initialize
-document.addEventListener('DOMContentLoaded', () => {
-    console.log('📄 Page loaded');
-    setupStartButton();
-});
 
 // Cleanup
 window.addEventListener('beforeunload', () => {
