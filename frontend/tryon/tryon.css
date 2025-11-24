@@ -332,3 +332,138 @@ footer {
         text-align: center;
     }
 }
+/* Camera Controls */
+.camera-controls {
+  margin-bottom: 1.5rem;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.camera-btn {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+  border: 2px solid #00bfff;
+  color: #00bfff;
+  padding: 10px 15px;
+  border-radius: 25px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  font-size: 14px;
+}
+
+.camera-btn:hover {
+  background: #00bfff;
+  color: white;
+  transform: scale(1.05);
+}
+
+/* Mobile-specific styles */
+@media (max-width: 768px) {
+  .camera-controls {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .camera-btn {
+    width: 80%;
+    text-align: center;
+  }
+}
+
+/* Selected Product Info Styles */
+.selected-product-info {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+  padding: 1.5rem;
+  border-radius: 15px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  margin-top: 1.5rem;
+  transition: all 0.3s ease;
+}
+
+.selected-product-info h3 {
+  margin: 0 0 0.8rem 0;
+  font-size: 1.3rem;
+  color: #00bfff;
+  font-weight: 600;
+}
+
+.selected-product-info p {
+  margin: 0.3rem 0;
+  color: #e0f7ff;
+  font-weight: 500;
+}
+
+.selected-product-info p:last-child {
+  color: #b0e0ff;
+  font-style: italic;
+}
+
+/* Navigation Buttons */
+.navigation-buttons {
+  margin-bottom: 1.5rem;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.navigation-buttons .btn-secondary {
+  margin: 0;
+}
+
+/* Control Panel */
+.control-panel {
+  margin-bottom: 1.5rem;
+}
+
+.control-panel label {
+  font-weight: 500;
+  margin-right: 0.5rem;
+  display: block;
+  margin-bottom: 0.5rem;
+  color: #e0f7ff;
+}
+
+.control-panel select {
+  padding: 0.8rem 1rem;
+  border-radius: 10px;
+  border: none;
+  background: #e0f7ff;
+  color: #001f3f;
+  font-weight: 500;
+  width: 100%;
+  font-size: 16px;
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+}
+
+.control-panel select:focus {
+  outline: none;
+  border-color: #00bfff;
+  box-shadow: 0 0 0 3px rgba(0, 191, 255, 0.2);
+}
+
+/* Responsive adjustments */
+@media (max-width: 900px) {
+  .selected-product-info {
+    padding: 1.2rem;
+    margin-top: 1.2rem;
+  }
+  
+  .selected-product-info h3 {
+    font-size: 1.2rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .selected-product-info {
+    padding: 1rem;
+  }
+  
+  .selected-product-info h3 {
+    font-size: 1.1rem;
+  }
+}
