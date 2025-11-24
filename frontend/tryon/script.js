@@ -218,13 +218,68 @@ function updateCameraButtonText() {
 
 // Robust startCamera with multiple fallbacks
 async function startCamera() {
+async function startCamera() {
     console.log('📷 Starting camera...');
-    // stop previous stream if any
+    
+    // stop previous stream
     if (currentStream) {
         currentStream.getTracks().forEach(t => t.stop());
         currentStream = null;
     }
-    // Attempt 0: force exact environment first (most reliable on phones)
+
+    // Get all available video inputs
+    const cameras = await getCameras();
+    if (cameras.length === 0) {
+        alert('No camera devices found');
+        console.error('❌ No cameras found');
+        return;
+    }
+
+    let chosenDeviceId = null;
+
+    // Heuristic: back camera = last one with "back" or label containing "rear"
+    if (currentFacingMode === 'environment') {
+        const backCamera = cameras.find(cam => /back|rear/i.test(cam.label));
+        chosenDeviceId = backCamera ? backCamera.deviceId : cameras[cameras.length - 1].deviceId;
+    } else {
+        // front camera = first one
+        const frontCamera = cameras.find(cam => /front/i.test(cam.label));
+        chosenDeviceId = frontCamera ? frontCamera.deviceId : cameras[0].deviceId;
+    }
+
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+                deviceId: { exact: chosenDeviceId },
+                width: { ideal: 640 },
+                height: { ideal: 480 }
+            }
+        });
+
+        currentStream = stream;
+        videoElement.srcObject = stream;
+        videoElement.style.display = 'none';
+        saveCameraPermission();
+
+        await new Promise((resolve) => {
+            videoElement.onloadedmetadata = () => {
+                resizeCanvasToVideo();
+                videoElement.play().then(resolve).catch(resolve);
+            };
+            setTimeout(resolve, 2000);
+        });
+
+        if (cameras.length > 1) showCameraControls();
+        updateCameraButtonText();
+        startMediaPipeProcessing();
+
+        console.log(`✅ Camera started: ${currentFacingMode}`);
+    } catch (err) {
+        console.error('❌ Failed to start camera:', err);
+        alert('Unable to access camera. Make sure you granted permission and your device has a camera.');
+    }
+}
+
 try {
     if (currentFacingMode === "environment") {
         const stream = await navigator.mediaDevices.getUserMedia({
