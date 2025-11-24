@@ -22,28 +22,33 @@
       <canvas id="output_canvas" width="640" height="480"></canvas>
     </div>
 
-<div class="right-panel">
-    <h2>Virtual Try-On</h2>
+    <div class="right-panel">
+      <h2>Virtual Try-On</h2>
 
-    <div class="navigation-buttons" id="navigationButtons">
+      <div class="navigation-buttons" id="navigationButtons">
         <!-- Back button will be inserted here dynamically -->
-    </div>
+      </div>
 
-    <div class="control-panel">
+      <!-- Add camera controls container -->
+      <div class="camera-controls">
+        <!-- Camera buttons will be inserted here dynamically -->
+      </div>
+
+      <div class="control-panel">
         <label for="clothingSelect">Choose an outfit:</label>
         <select id="clothingSelect">
-            <option value="none">Select a product...</option>
+          <option value="none">Select a product...</option>
         </select>
-    </div>
+      </div>
 
-    <div class="selected-product-info" id="selectedProductInfo" style="display: none;">
+      <div class="selected-product-info" id="selectedProductInfo" style="display: none;">
         <h3 id="selectedProductName"></h3>
         <p id="selectedProductPrice"></p>
         <p id="selectedProductCategory"></p>
-    </div>
+      </div>
 
-    <a href="../index/index.html" class="btn-secondary">← Return to Main Page</a>
-</div>
+      <a href="../index/index.html" class="btn-secondary">← Return to Main Page</a>
+    </div>
   </main>
 
   <footer>
@@ -53,7 +58,5 @@
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5/pose.js"></script>
   <script src="script.js"></script>
-
-
 </body>
 </html>
