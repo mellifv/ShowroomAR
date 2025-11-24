@@ -20,6 +20,108 @@ let shirtImg = new Image();
 let shirtLoaded = false;
 let currentStream = null;
 
+// Camera variables (ADDED BACK)
+let currentFacingMode = "user";
+let isImageFlipped = false;
+let switchCameraBtn = null;
+let flipImageBtn = null;
+
+// Showroom navigation variables
+let currentShowroom = null;
+
+// ==================== SHOWROOM NAVIGATION (ADDED BACK) ====================
+function loadShowroomContext() {
+    const saved = localStorage.getItem('currentShowroom');
+    return saved ? JSON.parse(saved) : null;
+}
+
+function createBackToShowroomButton() {
+    const showroom = loadShowroomContext();
+    if (!showroom) return null;
+
+    const backButton = document.createElement('a');
+    backButton.href = `../showroom/showroom.html?showroom=${showroom.id}`;
+    backButton.className = 'btn-secondary';
+    backButton.innerHTML = `← Back to ${showroom.name}`;
+    backButton.style.marginRight = '10px';
+
+    return backButton;
+}
+
+// ==================== CAMERA CONTROLS (ADDED BACK) ====================
+function createCameraControls() {
+    const controlsContainer = document.querySelector('.camera-controls');
+    if (!controlsContainer) {
+        console.warn('Camera controls container not found');
+        return;
+    }
+    
+    // Switch camera button
+    switchCameraBtn = document.createElement('button');
+    switchCameraBtn.id = 'switchCamera';
+    switchCameraBtn.className = 'camera-btn';
+    switchCameraBtn.style.display = 'none';
+    switchCameraBtn.onclick = switchCamera;
+    switchCameraBtn.textContent = '🔄 Switch to Back Camera';
+    
+    // Flip image button
+    flipImageBtn = document.createElement('button');
+    flipImageBtn.id = 'flipImage';
+    flipImageBtn.className = 'camera-btn';
+    flipImageBtn.style.display = 'none';
+    flipImageBtn.onclick = flipImage;
+    flipImageBtn.textContent = '↕️ Flip Image';
+    
+    controlsContainer.appendChild(switchCameraBtn);
+    controlsContainer.appendChild(flipImageBtn);
+}
+
+async function switchCamera() {
+    console.log('🔄 Switching camera...');
+    
+    if (currentStream) {
+        currentStream.getTracks().forEach(track => track.stop());
+        currentStream = null;
+    }
+    
+    // Toggle between front and back
+    currentFacingMode = currentFacingMode === "user" ? "environment" : "user";
+    
+    try {
+        await startCamera();
+        updateCameraButtonText();
+    } catch (error) {
+        console.error('Camera switch failed:', error);
+        // Revert on failure
+        currentFacingMode = currentFacingMode === "user" ? "environment" : "user";
+        alert('Unable to switch cameras. Your device might only have one camera.');
+    }
+}
+
+function flipImage() {
+    isImageFlipped = !isImageFlipped;
+    if (flipImageBtn) {
+        flipImageBtn.textContent = isImageFlipped ? '↕️ Unflip Image' : '↕️ Flip Image';
+    }
+    console.log(`🔄 Image flipped: ${isImageFlipped}`);
+}
+
+function updateCameraButtonText() {
+    if (switchCameraBtn) {
+        const cameraName = currentFacingMode === "user" ? "Back" : "Front";
+        switchCameraBtn.textContent = `🔄 Switch to ${cameraName} Camera`;
+    }
+}
+
+function showCameraControls() {
+    if (switchCameraBtn) {
+        switchCameraBtn.style.display = 'block';
+    }
+    if (flipImageBtn) {
+        flipImageBtn.style.display = 'block';
+    }
+}
+
 // ==================== ULTRA-SIMPLE CAMERA SOLUTION ====================
 async function startCamera() {
     console.log('📷 Starting camera...');
@@ -30,18 +132,57 @@ async function startCamera() {
             currentStream.getTracks().forEach(track => track.stop());
         }
         
-        // SIMPLEST POSSIBLE CONSTRAINTS - This works on 99% of devices
-        const constraints = { video: true };
+        // Try different approaches based on facing mode
+        let stream;
+        const cameras = await getCameras();
+        console.log(`📹 Found ${cameras.length} cameras`);
         
-        console.log('🎯 Using constraints:', constraints);
+        if (cameras.length === 0) {
+            throw new Error('No cameras found');
+        }
         
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
-        console.log('✅ Camera access granted');
-        
+        if (cameras.length === 1 || currentFacingMode === "user") {
+            // Single camera or front camera - use basic constraints
+            console.log('📹 Using basic camera access');
+            stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        } else {
+            // Multiple cameras and back camera requested
+            console.log('📹 Trying to get back camera');
+            try {
+                // First try with facingMode
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: { ideal: "environment" }
+                    }
+                });
+                console.log('✅ Got back camera using facingMode');
+            } catch (facingError) {
+                console.warn('⚠️ facingMode failed, trying device selection');
+                
+                // Fallback: try to find back camera by deviceId
+                const backCamera = cameras.find(cam => 
+                    cam.label.toLowerCase().includes('back') || 
+                    cam.label.toLowerCase().includes('rear') ||
+                    cameras.indexOf(cam) === cameras.length - 1 // Last camera
+                );
+                
+                if (backCamera) {
+                    stream = await navigator.mediaDevices.getUserMedia({
+                        video: {
+                            deviceId: { exact: backCamera.deviceId }
+                        }
+                    });
+                    console.log('✅ Got back camera using deviceId');
+                } else {
+                    throw new Error('Could not find back camera');
+                }
+            }
+        }
+
         currentStream = stream;
         videoElement.srcObject = stream;
         
-        // Wait for video to be ready with better error handling
+        // Wait for video to be ready
         await new Promise((resolve, reject) => {
             let resolved = false;
             
@@ -55,7 +196,6 @@ async function startCamera() {
             videoElement.onloadedmetadata = onReady;
             videoElement.oncanplay = onReady;
             
-            // Fallback timeout
             setTimeout(() => {
                 if (!resolved) {
                     console.log('⏰ Video timeout - proceeding anyway');
@@ -74,6 +214,13 @@ async function startCamera() {
         localStorage.setItem('cameraPermission', 'granted');
         startMediaPipeProcessing();
         
+        // Show camera controls if multiple cameras
+        if (cameras.length > 1) {
+            showCameraControls();
+        }
+        
+        updateCameraButtonText();
+        
         // Hide start button
         const startBtn = document.querySelector('.start-camera-btn');
         if (startBtn) startBtn.style.display = 'none';
@@ -83,6 +230,16 @@ async function startCamera() {
     } catch (error) {
         console.error('❌ Camera failed completely:', error);
         showCameraError(error);
+    }
+}
+
+async function getCameras() {
+    try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        return devices.filter(device => device.kind === 'videoinput');
+    } catch (error) {
+        console.error('Error getting cameras:', error);
+        return [];
     }
 }
 
@@ -151,12 +308,27 @@ function onResults(results) {
     const { width, height } = canvasElement;
     canvasCtx.clearRect(0, 0, width, height);
 
-    // Draw mirrored camera feed (front camera)
-    canvasCtx.save();
-    canvasCtx.translate(width, 0);
-    canvasCtx.scale(-1, 1);
-    canvasCtx.drawImage(results.image, 0, 0, width, height);
-    canvasCtx.restore();
+    // Handle different camera orientations (ADDED BACK CAMERA SUPPORT)
+    if (currentFacingMode === "environment" && !isImageFlipped) {
+        // Back camera - no flip (normal orientation)
+        canvasCtx.save();
+        canvasCtx.drawImage(results.image, 0, 0, width, height);
+        canvasCtx.restore();
+    } else if (currentFacingMode === "environment" && isImageFlipped) {
+        // Back camera - flipped horizontally
+        canvasCtx.save();
+        canvasCtx.translate(width, 0);
+        canvasCtx.scale(-1, 1);
+        canvasCtx.drawImage(results.image, 0, 0, width, height);
+        canvasCtx.restore();
+    } else {
+        // Front camera - always mirrored
+        canvasCtx.save();
+        canvasCtx.translate(width, 0);
+        canvasCtx.scale(-1, 1);
+        canvasCtx.drawImage(results.image, 0, 0, width, height);
+        canvasCtx.restore();
+    }
 
     // Show instructions if no clothing or pose
     if (!shirtLoaded || !results.poseLandmarks) {
@@ -195,8 +367,6 @@ function drawClothingWithPrecision(landmarks, width, height) {
     const rightShoulder = toCanvas(landmarks[12]);
     const leftHip = toCanvas(landmarks[23]);
     const rightHip = toCanvas(landmarks[24]);
-    const leftElbow = toCanvas(landmarks[13]);
-    const rightElbow = toCanvas(landmarks[14]);
 
     // Calculate shoulder line
     const shoulderCenter = {
@@ -235,9 +405,7 @@ function drawClothingWithPrecision(landmarks, width, height) {
             shoulderCenter, 
             shoulderWidth, 
             shoulderAngle, 
-            torsoHeight,
-            leftShoulder,
-            rightShoulder
+            torsoHeight
         );
     } else {
         // ========== PRECISE BOTTOM POSITIONING ==========
@@ -253,7 +421,7 @@ function drawClothingWithPrecision(landmarks, width, height) {
     drawDebugPoints([leftShoulder, rightShoulder, shoulderCenter]);
 }
 
-function drawTopWithPrecision(shoulderCenter, shoulderWidth, shoulderAngle, torsoHeight, leftShoulder, rightShoulder) {
+function drawTopWithPrecision(shoulderCenter, shoulderWidth, shoulderAngle, torsoHeight) {
     canvasCtx.save();
     
     // Position at shoulder center
@@ -272,15 +440,6 @@ function drawTopWithPrecision(shoulderCenter, shoulderWidth, shoulderAngle, tors
     canvasCtx.drawImage(shirtImg, drawX, drawY, clothingWidth, clothingHeight);
     
     canvasCtx.restore();
-
-    // DEBUG: Log positioning info
-    console.log('👕 Top Positioning:', {
-        shoulderCenter,
-        shoulderWidth: Math.round(shoulderWidth),
-        clothingWidth: Math.round(clothingWidth),
-        clothingHeight: Math.round(clothingHeight),
-        angle: Math.round(shoulderAngle * 180 / Math.PI) + '°'
-    });
 }
 
 function drawBottomWithPrecision(hipCenter, shoulderWidth, shoulderAngle, torsoHeight) {
@@ -300,12 +459,6 @@ function drawBottomWithPrecision(hipCenter, shoulderWidth, shoulderAngle, torsoH
 
     canvasCtx.drawImage(shirtImg, drawX, drawY, clothingWidth, clothingHeight);
     canvasCtx.restore();
-
-    console.log('👖 Bottom Positioning:', {
-        hipCenter,
-        clothingWidth: Math.round(clothingWidth),
-        clothingHeight: Math.round(clothingHeight)
-    });
 }
 
 // DEBUG: Visualize key points (remove in production)
@@ -459,6 +612,21 @@ if (clothingSelect) {
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('🚀 Virtual Try-On Initializing...');
+    
+    // Create camera controls (ADDED BACK)
+    createCameraControls();
+    
+    // Add back button if coming from showroom (ADDED BACK)
+    const showroom = loadShowroomContext();
+    if (showroom) {
+        const backButton = createBackToShowroomButton();
+        if (backButton) {
+            const navButtons = document.getElementById('navigationButtons') || document.querySelector('.right-panel');
+            if (navButtons) {
+                navButtons.insertBefore(backButton, navButtons.firstChild);
+            }
+        }
+    }
     
     // Set default shirt
     shirtImg.src = getCloudinaryUrl("clothes/shirt/RedShirt_dkyvmdt");
