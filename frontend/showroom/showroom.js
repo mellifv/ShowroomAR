@@ -4,6 +4,16 @@ const params = new URLSearchParams(window.location.search);
 const showroomId = params.get("id");
 
 console.log('Showroom ID:', showroomId);
+// CORRECT Cloudinary URL function
+function getCloudinaryUrl(publicId, width = 400, height = 600) {
+    if (!publicId) return "../images/default-product.png";
+    
+    // Clean the public_id - remove any file extensions and leading slashes
+    publicId = publicId.replace(/^\//, "").replace(/\.(png|jpg|jpeg|webp)$/i, "");
+    
+    // Build the Cloudinary URL with transformations
+    return `https://res.cloudinary.com/djwoojdrl/image/upload/w_${width},h_${height},c_fill/${publicId}`;
+}
 
 async function loadProducts() {
   try {
@@ -26,13 +36,16 @@ async function loadProducts() {
     }
 
     document.getElementById("showroom-name").textContent = products[0]?.showroom?.name || "Collection";
+    
+    // FIXED: Use getCloudinaryUrl() for product images
     document.getElementById("product-list").innerHTML = products.map(p => `
       <div class="product-card">
-        <img src="${p.image}" alt="${p.name}">
+        <img src="${getCloudinaryUrl(p.image)}" alt="${p.name}" 
+             onerror="this.src='../images/default-product.png'">
         <h3>${p.name}</h3>
         <p>${p.category}</p>
         <p><b>$${p.price}</b></p>
-        <button class="btn" onclick="tryOn('${p.image}')">Try On</button>
+        <button class="btn" onclick="tryOnProduct('${p._id}')">Try On</button>
         <button class="btn" onclick="addToCart('${p._id}', '${p.name}', ${p.price})">Add to Cart</button>
       </div>
     `).join("");
