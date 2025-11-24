@@ -76,6 +76,7 @@ function createCameraControls() {
     controlsContainer.appendChild(flipImageBtn);
 }
 
+// ==================== FIXED SWITCH LOGIC ====================
 async function switchCamera() {
     console.log('🔄 Switching camera...');
     
@@ -84,7 +85,10 @@ async function switchCamera() {
         currentStream = null;
     }
     
-    // Toggle between front and back
+    // Save previous mode in case of failure
+    const previousFacingMode = currentFacingMode;
+    
+    // Toggle target mode
     currentFacingMode = currentFacingMode === "user" ? "environment" : "user";
     
     try {
@@ -92,9 +96,19 @@ async function switchCamera() {
         updateCameraButtonText();
     } catch (error) {
         console.error('Camera switch failed:', error);
-        // Revert on failure
-        currentFacingMode = currentFacingMode === "user" ? "environment" : "user";
-        alert('Unable to switch cameras. Your device might only have one camera.');
+        
+        // Revert on failure to prevent getting stuck
+        currentFacingMode = previousFacingMode;
+        
+        // Try to restart the old camera
+        try {
+            await startCamera();
+        } catch (retryError) {
+            console.error('Could not restore previous camera:', retryError);
+        }
+        
+        updateCameraButtonText();
+        alert('Unable to switch cameras. Your device might not support the requested camera.');
     }
 }
 
@@ -108,8 +122,9 @@ function flipImage() {
 
 function updateCameraButtonText() {
     if (switchCameraBtn) {
-        const cameraName = currentFacingMode === "user" ? "Back" : "Front";
-        switchCameraBtn.textContent = `🔄 Switch to ${cameraName} Camera`;
+        // Show the name of the camera we would switch TO
+        const nextCameraName = currentFacingMode === "user" ? "Back" : "Front";
+        switchCameraBtn.textContent = `🔄 Switch to ${nextCameraName} Camera`;
     }
 }
 
@@ -122,9 +137,9 @@ function showCameraControls() {
     }
 }
 
-// ==================== ULTRA-SIMPLE CAMERA SOLUTION ====================
+// ==================== FIXED START CAMERA LOGIC ====================
 async function startCamera() {
-    console.log('📷 Starting camera...');
+    console.log(`📷 Starting camera with facingMode: ${currentFacingMode}...`);
     
     try {
         // Stop any existing stream
@@ -132,51 +147,26 @@ async function startCamera() {
             currentStream.getTracks().forEach(track => track.stop());
         }
         
-        // Try different approaches based on facing mode
         let stream;
-        const cameras = await getCameras();
-        console.log(`📹 Found ${cameras.length} cameras`);
         
-        if (cameras.length === 0) {
-            throw new Error('No cameras found');
-        }
-        
-        if (cameras.length === 1 || currentFacingMode === "user") {
-            // Single camera or front camera - use basic constraints
-            console.log('📹 Using basic camera access');
-            stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        } else {
-            // Multiple cameras and back camera requested
-            console.log('📹 Trying to get back camera');
-            try {
-                // First try with facingMode
-                stream = await navigator.mediaDevices.getUserMedia({
-                    video: {
-                        facingMode: { ideal: "environment" }
-                    }
-                });
-                console.log('✅ Got back camera using facingMode');
-            } catch (facingError) {
-                console.warn('⚠️ facingMode failed, trying device selection');
-                
-                // Fallback: try to find back camera by deviceId
-                const backCamera = cameras.find(cam => 
-                    cam.label.toLowerCase().includes('back') || 
-                    cam.label.toLowerCase().includes('rear') ||
-                    cameras.indexOf(cam) === cameras.length - 1 // Last camera
-                );
-                
-                if (backCamera) {
-                    stream = await navigator.mediaDevices.getUserMedia({
-                        video: {
-                            deviceId: { exact: backCamera.deviceId }
-                        }
-                    });
-                    console.log('✅ Got back camera using deviceId');
-                } else {
-                    throw new Error('Could not find back camera');
-                }
+        // STRICTLY request the current mode. 
+        // We do not fallback here; we let switchCamera handle fallbacks.
+        const constraints = {
+            video: {
+                facingMode: { ideal: currentFacingMode }
             }
+        };
+
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+        console.log(`✅ Got stream for ${currentFacingMode}`);
+        
+        // Check what we actually got
+        const track = stream.getVideoTracks()[0];
+        const settings = track.getSettings();
+        if (settings.facingMode && settings.facingMode !== currentFacingMode) {
+            console.warn(`⚠️ Requested ${currentFacingMode} but got ${settings.facingMode}`);
+            // Update state to match reality so buttons are correct
+            currentFacingMode = settings.facingMode;
         }
 
         currentStream = stream;
@@ -214,7 +204,8 @@ async function startCamera() {
         localStorage.setItem('cameraPermission', 'granted');
         startMediaPipeProcessing();
         
-        // Show camera controls if multiple cameras
+        // Show camera controls if multiple cameras exist
+        const cameras = await getCameras();
         if (cameras.length > 1) {
             showCameraControls();
         }
@@ -228,8 +219,9 @@ async function startCamera() {
         console.log('🚀 Camera started successfully');
         
     } catch (error) {
-        console.error('❌ Camera failed completely:', error);
-        showCameraError(error);
+        console.error('❌ Camera failed in startCamera:', error);
+        // Throw error up to switchCamera so it knows to revert
+        throw error;
     }
 }
 
