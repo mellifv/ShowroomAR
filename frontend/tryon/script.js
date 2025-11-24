@@ -61,7 +61,7 @@ function createBackToShowroomButton() {
 
     const backButton = document.createElement('a');
     // Use absolute path to avoid relative path issues
-    backButton.href = `../showroom/showroom.html?showroom=${showroom.id}`;
+    backButton.href = `/showroom/showroom-products.html?showroom=${showroom.id}`;
     backButton.className = 'btn-secondary';
     backButton.innerHTML = `← Back to ${showroom.name}`;
     backButton.style.marginRight = '10px';
@@ -218,45 +218,173 @@ function updateCameraButtonText() {
 
 // Robust startCamera with multiple fallbacks
 async function startCamera() {
-  const video = document.getElementById("input_video");
-
-  async function tryStream(constraints) {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      video.srcObject = stream;
-      await video.play();
-      console.log("Camera started with:", constraints);
-      return true;
-    } catch (err) {
-      console.warn("Camera failed with:", constraints, err);
-      return false;
+    console.log('📷 Starting camera...');
+    // stop previous stream if any
+    if (currentStream) {
+        currentStream.getTracks().forEach(t => t.stop());
+        currentStream = null;
     }
-  }
+    // Attempt 0: force exact environment first (most reliable on phones)
+try {
+    if (currentFacingMode === "environment") {
+        const stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+                width: { ideal: 640 },
+                height: { ideal: 480 },
+                facingMode: { exact: "environment" }
+            }
+        });
 
-  // 1. Strict environment (may fail on many devices)
-  if (await tryStream({ video: { facingMode: { exact: "environment" } } })) return;
+        currentStream = stream;
+        videoElement.srcObject = stream;
+        videoElement.style.display = 'none';
+        saveCameraPermission();
 
-  // 2. Soft environment (works on most phones)
-  if (await tryStream({ video: { facingMode: "environment" } })) return;
+        await new Promise((resolve) => {
+            videoElement.onloadedmetadata = () => {
+                resizeCanvasToVideo();
+                videoElement.play().then(resolve).catch(resolve);
+            };
+            setTimeout(resolve, 2000);
+        });
 
-  // 3. Enumerate devices and pick a back camera manually
-  try {
-    const devices = await navigator.mediaDevices.enumerateDevices();
-    const backCam = devices.find(
-      d => d.kind === "videoinput" && /back|rear|environment/i.test(d.label)
-    );
+        const cameras = await getCameras();
+        if (cameras.length > 1) showCameraControls();
 
-    if (backCam) {
-      if (await tryStream({ video: { deviceId: backCam.deviceId } })) return;
+        updateCameraButtonText();
+        startMediaPipeProcessing();
+        console.log("✅ Camera started with exact environment");
+        return;
     }
-  } catch (err) {
-    console.warn("Device enumeration failed:", err);
-  }
-
-  // 4. Last fallback — any camera
-  await tryStream({ video: true });
+} catch (err) {
+    console.warn("⚠️ Exact environment failed:", err.name);
 }
 
+    // First attempt: use facingMode as ideal (less strict than exact)
+    const baseConstraints = {
+        video: {
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+            facingMode: { ideal: currentFacingMode } // try desired camera
+        }
+    };
+
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia(baseConstraints);
+        currentStream = stream;
+        videoElement.srcObject = stream;
+        videoElement.style.display = 'none';
+        saveCameraPermission();
+
+        await new Promise((resolve) => {
+            videoElement.onloadedmetadata = () => {
+                resizeCanvasToVideo();
+                videoElement.play().then(resolve).catch(resolve);
+            };
+            setTimeout(resolve, 2000);
+        });
+
+        // show controls if multiple cameras exist
+        const cameras = await getCameras();
+        if (cameras.length > 1) {
+            showCameraControls();
+        }
+
+        updateCameraButtonText();
+        startMediaPipeProcessing();
+        console.log('✅ Camera started with facingMode ideal');
+        return;
+    } catch (err) {
+        console.warn('⚠️ FacingMode ideal failed:', err && err.name);
+        // Continue to fallbacks below
+    }
+
+    // Second attempt: try with no facingMode (generic request)
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+                width: { ideal: 640 },
+                height: { ideal: 480 }
+            }
+        });
+        currentStream = stream;
+        videoElement.srcObject = stream;
+        videoElement.style.display = 'none';
+        saveCameraPermission();
+
+        await new Promise((resolve) => {
+            videoElement.onloadedmetadata = () => {
+                resizeCanvasToVideo();
+                videoElement.play().then(resolve).catch(resolve);
+            };
+            setTimeout(resolve, 2000);
+        });
+
+        const cameras = await getCameras();
+        if (cameras.length > 1) {
+            showCameraControls();
+        }
+
+        updateCameraButtonText();
+        startMediaPipeProcessing();
+        console.log('✅ Camera started without facingMode (fallback)');
+        return;
+    } catch (err) {
+        console.warn('⚠️ No-facingMode attempt failed:', err && err.name);
+        // Continue to final fallback
+    }
+
+    // Final fallback: enumerate devices and try to pick a deviceId
+    try {
+        const cameras = await getCameras();
+        if (cameras.length === 0) {
+            throw new Error('No camera devices found');
+        }
+
+        // heuristic: for "environment" prefer the last camera in list, for "user" prefer first
+        let chosenDeviceId = null;
+        if (currentFacingMode === 'environment') {
+            chosenDeviceId = cameras[cameras.length - 1].deviceId;
+        } else {
+            chosenDeviceId = cameras[0].deviceId;
+        }
+
+        const stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+                deviceId: { exact: chosenDeviceId },
+                width: { ideal: 640 },
+                height: { ideal: 480 }
+            }
+        });
+
+        currentStream = stream;
+        videoElement.srcObject = stream;
+        videoElement.style.display = 'none';
+        saveCameraPermission();
+
+        await new Promise((resolve) => {
+            videoElement.onloadedmetadata = () => {
+                resizeCanvasToVideo();
+                videoElement.play().then(resolve).catch(resolve);
+            };
+            setTimeout(resolve, 2000);
+        });
+
+        if (cameras.length > 1) {
+            showCameraControls();
+        }
+
+        updateCameraButtonText();
+        startMediaPipeProcessing();
+        console.log('✅ Camera started with deviceId fallback');
+        return;
+    } catch (err) {
+        console.error('❌ Final fallback camera start failed:', err);
+        if (err.name !== 'NotAllowedError') {
+            alert('Camera error: ' + (err.message || err.name));
+        }
+    }
+}
 
 function showCameraControls() {
     if (switchCameraBtn) {
@@ -387,7 +515,7 @@ function onResults(results) {
 
     const itemName = (selected?.name || "").toLowerCase();
     const isBottom = /trouser|pant|jean|short|bottom|skirt|legging/.test(itemName);
-    const isShort = /jhgfkytv/.test(itemName);
+    const isShort = /short/.test(itemName);
 
     if (!isBottom) {
         // --- SHIRT / JACKET ---
