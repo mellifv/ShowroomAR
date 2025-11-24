@@ -22,28 +22,38 @@
       <canvas id="output_canvas" width="640" height="480"></canvas>
     </div>
 
-    <div class="right-panel">
-      <h2>Virtual Try-On</h2>
+   <div class="right-panel">
+    <h2>Virtual Try-On</h2>
 
-      <div class="control-panel">
-    <label for="clothingSelect">Choose an outfit:</label>
-    <select id="clothingSelect" disabled>
-        <option value="none">Loading products...</option>
-    </select>
-</div>
-
-<div class="selected-product-info" id="selectedProductInfo" style="display: none;">
-    <h3 id="selectedProductName"></h3>
-    <p id="selectedProductPrice"></p>
-    <p id="selectedProductCategory"></p>
-</div>
-
-      <div class="products-grid" id="productsGrid">
-        <!-- Products will be displayed here as cards -->
-      </div>
-
-      <a href="../index/index.html" class="btn-secondary">← Return to Main Page</a>
+    <div class="navigation-buttons" id="navigationButtons">
+        <!-- Back button will be inserted here dynamically -->
     </div>
+
+    <!-- Add camera controls -->
+    <div class="camera-controls">
+        <button id="switchCamera" class="camera-btn" style="display: none;">
+            🔄 Switch Camera
+        </button>
+        <button id="flipImage" class="camera-btn" style="display: none;">
+            ↕️ Flip Image
+        </button>
+    </div>
+
+    <div class="control-panel">
+        <label for="clothingSelect">Choose an outfit:</label>
+        <select id="clothingSelect">
+            <option value="none">Select a product...</option>
+        </select>
+    </div>
+
+    <div class="selected-product-info" id="selectedProductInfo" style="display: none;">
+        <h3 id="selectedProductName"></h3>
+        <p id="selectedProductPrice"></p>
+        <p id="selectedProductCategory"></p>
+    </div>
+
+    <a href="../index/index.html" class="btn-secondary">← Return to Main Page</a>
+</div>
   </main>
 
   <footer>
