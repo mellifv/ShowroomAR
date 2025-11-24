@@ -296,6 +296,8 @@ try {
         return;
     } catch (err) {
         console.warn('⚠️ FacingMode ideal failed:', err && err.name);
+        console.error(err);
+
         // Continue to fallbacks below
     }
 
