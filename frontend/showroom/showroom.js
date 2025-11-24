@@ -1,229 +1,250 @@
-import { API } from "../js/api.js";
-
-const params = new URLSearchParams(window.location.search);
-const showroomId = params.get("showroom") || params.get("id"); // Support both parameters
-
-console.log('Showroom ID:', showroomId);
-
-let products = []; // Store products globally
-
-// CORRECT Cloudinary URL function
-function getCloudinaryUrl(publicId, width = 400, height = 600) {
-    if (!publicId) return "../images/default-product.png";
-    
-    // Clean the public_id - remove any file extensions and leading slashes
-    publicId = publicId.replace(/^\//, "").replace(/\.(png|jpg|jpeg|webp)$/i, "");
-    
-    // Build the Cloudinary URL with transformations
-    return `https://res.cloudinary.com/djwoojdrl/image/upload/w_${width},h_${height},c_fill/${publicId}`;
+// Camera functions - FIXED VERSION
+async function getCameras() {
+    try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const cameras = devices.filter(device => device.kind === 'videoinput');
+        console.log('📹 Available cameras:', cameras.map(cam => ({
+            label: cam.label,
+            deviceId: cam.deviceId
+        })));
+        return cameras;
+    } catch (error) {
+        console.error('Error getting cameras:', error);
+        return [];
+    }
 }
 
-async function loadProducts() {
-  try {
-    console.log('Loading products for showroom:', showroomId);
+// Improved camera switching function
+async function switchCamera() {
+    console.log('🔄 Attempting to switch camera...');
     
-    if (!showroomId) {
-      console.log('No showroom ID provided');
-      document.getElementById("showroom-name").textContent = "Select a Showroom";
-      document.getElementById("product-list").innerHTML = "<p>Please select a showroom first.</p>";
-      return;
+    if (currentStream) {
+        currentStream.getTracks().forEach(track => track.stop());
     }
-
-    products = await API.getProductsByShowroom(showroomId);
-    console.log('Products loaded:', products);
     
-    if (!products || products.length === 0) {
-      document.getElementById("showroom-name").textContent = "No Products Found";
-      document.getElementById("product-list").innerHTML = "<p>No products available in this showroom.</p>";
-      return;
-    }
-
-    const showroomName = products[0]?.showroom?.name || "Collection";
-    document.getElementById("showroom-name").textContent = showroomName;
-    
-    // FIXED: Use getCloudinaryUrl() for product images and proper tryOnProduct function
-    document.getElementById("product-list").innerHTML = products.map(p => `
-      <div class="product-card">
-        <img src="${getCloudinaryUrl(p.image)}" alt="${p.name}" 
-             class="product-image"
-             onerror="this.src='../images/default-product.png'">
-        <div class="product-info">
-          <h3>${p.name}</h3>
-          <p class="category">${p.category}</p>
-          <p class="price"><b>$${p.price}</b></p>
-        </div>
-        <div class="product-actions">
-          <button class="btn try-on-btn" onclick="tryOnProduct('${p._id}')">Try On</button>
-          <button class="btn cart-btn" onclick="addToCart('${p._id}', '${p.name}', ${p.price})">Add to Cart</button>
-        </div>
-      </div>
-    `).join("");
-    
-  } catch (error) {
-    console.error('Error loading products:', error);
-    document.getElementById("product-list").innerHTML = "<p>Error loading products. Please try again later.</p>";
-  }
-}
-
-// FIXED: Proper tryOnProduct function
-window.tryOnProduct = (productId) => {
-    const product = products.find(p => p._id === productId);
-    if (product) {
-        console.log('🔄 Selecting product for try-on:', product.name);
+    try {
+        const cameras = await getCameras();
         
-        // Save product to localStorage for try-on page
-        localStorage.setItem("selectedModel", JSON.stringify(product));
-        
-        // Save showroom context for back navigation
-        if (showroomId && product.showroom) {
-            localStorage.setItem('currentShowroom', JSON.stringify({
-                id: showroomId,
-                name: product.showroom.name
-            }));
-        } else if (showroomId) {
-            // Fallback: use the showroom name from the page title
-            const showroomName = document.getElementById("showroom-name").textContent;
-            localStorage.setItem('currentShowroom', JSON.stringify({
-                id: showroomId,
-                name: showroomName
-            }));
+        if (cameras.length < 2) {
+            alert('Only one camera found on this device');
+            return;
         }
         
-        // Redirect to try-on page
-        window.location.href = '../tryon/tryon.html';
-    } else {
-        console.error('❌ Product not found:', productId);
+        // Toggle between front and back
+        currentFacingMode = currentFacingMode === "user" ? "environment" : "user";
+        console.log(`🔄 Switching to ${currentFacingMode} camera`);
+        
+        // Try different constraint approaches
+        let constraints;
+        
+        if (currentFacingMode === "user") {
+            // Front camera
+            constraints = {
+                video: {
+                    width: { ideal: 640 },
+                    height: { ideal: 480 },
+                    facingMode: "user"
+                }
+            };
+        } else {
+            // Back camera
+            constraints = {
+                video: {
+                    width: { ideal: 640 },
+                    height: { ideal: 480 },
+                    facingMode: "environment"
+                }
+            };
+        }
+        
+        console.log('🎯 Camera constraints:', constraints);
+        
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        await handleNewStream(stream);
+        
+    } catch (error) {
+        console.error('❌ Camera switch failed:', error);
+        
+        // Fallback: try deviceId-based switching
+        await fallbackCameraSwitch();
     }
-};
-
-// Message display function
-function showMessage(message, type = 'success') {
-  console.log('Showing message:', message, type);
-  
-  // Create message element if it doesn't exist
-  let messageDiv = document.getElementById('cart-message');
-  if (!messageDiv) {
-    messageDiv = document.createElement('div');
-    messageDiv.id = 'cart-message';
-    messageDiv.style.cssText = `
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      padding: 1rem 1.5rem;
-      border-radius: 5px;
-      color: white;
-      font-weight: bold;
-      z-index: 1000;
-      max-width: 300px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-      transition: all 0.3s ease;
-    `;
-    document.body.appendChild(messageDiv);
-  }
-
-  // Set message style based on type
-  if (type === 'success') {
-    messageDiv.style.background = '#27ae60';
-  } else if (type === 'error') {
-    messageDiv.style.background = '#e74c3c';
-  } else {
-    messageDiv.style.background = '#3498db';
-  }
-
-  messageDiv.textContent = message;
-  messageDiv.style.display = 'block';
-
-  // Auto hide after 3 seconds
-  setTimeout(() => {
-    messageDiv.style.display = 'none';
-  }, 3000);
 }
 
-// Update cart counter
-function updateCartCounter() {
-  const cart = JSON.parse(localStorage.getItem("cart")) || [];
-  const totalItems = cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
-  
-  console.log('Updating cart counter. Total items:', totalItems);
-  
-  // Update counter in navigation
-  let counter = document.getElementById('cart-counter');
-  if (!counter) {
-    // Create counter if it doesn't exist
-    const navAuth = document.querySelector('.nav-auth');
-    if (navAuth) {
-      counter = document.createElement('span');
-      counter.id = 'cart-counter';
-      counter.style.cssText = `
-        background: #e74c3c;
-        color: white;
-        border-radius: 50%;
-        padding: 2px 6px;
-        font-size: 0.8rem;
-        margin-left: 5px;
-      `;
-      
-      const cartLink = document.querySelector('a[href*="cart.html"]');
-      if (cartLink) {
-        cartLink.appendChild(counter);
-      }
+// Fallback method using deviceId
+async function fallbackCameraSwitch() {
+    try {
+        console.log('🔄 Trying fallback camera switching...');
+        const cameras = await getCameras();
+        
+        if (cameras.length < 2) {
+            throw new Error('Only one camera available');
+        }
+        
+        // Get current deviceId to switch to the other one
+        const currentDeviceId = currentStream?.getVideoTracks()[0]?.getSettings()?.deviceId;
+        const otherCamera = cameras.find(cam => cam.deviceId !== currentDeviceId);
+        
+        if (!otherCamera) {
+            throw new Error('Could not find alternative camera');
+        }
+        
+        console.log('🎯 Switching to camera:', otherCamera.label);
+        
+        const constraints = {
+            video: {
+                deviceId: { exact: otherCamera.deviceId },
+                width: { ideal: 640 },
+                height: { ideal: 480 }
+            }
+        };
+        
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        await handleNewStream(stream);
+        
+        // Update facing mode based on camera label
+        if (otherCamera.label.toLowerCase().includes('back') || 
+            otherCamera.label.toLowerCase().includes('rear')) {
+            currentFacingMode = "environment";
+        } else {
+            currentFacingMode = "user";
+        }
+        
+    } catch (fallbackError) {
+        console.error('❌ Fallback camera switch failed:', fallbackError);
+        alert('Unable to switch cameras. Your device might only have one camera.');
+        
+        // Revert to original facing mode
+        currentFacingMode = currentFacingMode === "user" ? "environment" : "user";
     }
-  }
-  
-  if (counter) {
-    counter.textContent = totalItems;
-    counter.style.display = totalItems > 0 ? 'inline' : 'none';
-  }
 }
 
-// Add to cart function
-window.addToCart = (id, name, price) => {
-  console.log('Add to cart clicked:', { id, name, price });
-  
-  try {
-    const cart = JSON.parse(localStorage.getItem("cart")) || [];
-    console.log('Current cart:', cart);
+// Handle new stream
+async function handleNewStream(stream) {
+    currentStream = stream;
+    videoElement.srcObject = stream;
     
-    // Check if item already exists
-    const existingItem = cart.find(item => item.id === id);
-    if (existingItem) {
-      existingItem.quantity = (existingItem.quantity || 1) + 1;
-      console.log('Increased quantity for existing item:', existingItem);
-    } else {
-      cart.push({ 
-        id, 
-        name, 
-        price, 
-        quantity: 1 
-      });
-      console.log('Added new item to cart');
+    await new Promise((resolve) => {
+        videoElement.onloadedmetadata = () => {
+            resizeCanvasToVideo();
+            videoElement.play().then(resolve).catch(resolve);
+        };
+        setTimeout(resolve, 1000);
+    });
+    
+    updateCameraButtonText();
+    console.log('✅ Camera switched successfully');
+}
+
+// Improved startCamera function
+async function startCamera() {
+    console.log('📷 Starting camera...');
+    try {
+        const cameras = await getCameras();
+        const hasMultipleCameras = cameras.length > 1;
+        
+        let constraints = {
+            video: {
+                width: { ideal: 640 },
+                height: { ideal: 480 },
+                facingMode: currentFacingMode
+            }
+        };
+        
+        console.log('🎯 Initial camera constraints:', constraints);
+        
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        
+        console.log('✅ Camera access granted');
+        currentStream = stream;
+        videoElement.style.display = 'none';
+        videoElement.srcObject = stream;
+        
+        saveCameraPermission();
+        
+        await new Promise((resolve) => {
+            videoElement.onloadedmetadata = () => {
+                resizeCanvasToVideo();
+                videoElement.play().then(resolve).catch(resolve);
+            };
+            setTimeout(resolve, 2000);
+        });
+        
+        // Show camera controls if multiple cameras available
+        if (hasMultipleCameras) {
+            showCameraControls();
+        } else {
+            console.log('ℹ️ Only one camera detected, hiding switch button');
+            if (switchCameraBtn) {
+                switchCameraBtn.style.display = 'none';
+            }
+        }
+        
+        updateCameraButtonText();
+        startMediaPipeProcessing();
+        
+    } catch (error) {
+        console.error('❌ Camera start failed:', error);
+        
+        // More specific error handling
+        if (error.name === 'NotAllowedError') {
+            console.log('❌ Camera permission denied');
+        } else if (error.name === 'NotFoundError' || error.name === 'OverconstrainedError') {
+            console.log('🔄 Retrying with relaxed constraints...');
+            await startCameraWithRelaxedConstraints();
+        } else {
+            console.error('❌ Unexpected camera error:', error);
+        }
     }
-    
-    localStorage.setItem("cart", JSON.stringify(cart));
-    console.log('Updated cart saved to localStorage');
-    
-    // Show success message
-    showMessage(`"${name}" added to cart!`, 'success');
-    
-    // Update cart counter
-    updateCartCounter();
-    
-  } catch (error) {
-    console.error('Error adding to cart:', error);
-    showMessage('Failed to add item to cart', 'error');
-  }
-};
+}
 
-// Remove the old tryOn function since we have tryOnProduct now
-// window.tryOn = (image) => {
-//   console.log('Try on clicked for image:', image);
-//   localStorage.setItem("selectedModel", JSON.stringify({ image }));
-//   window.location.href = "../tryon/tryon.html";
-// };
+// Fallback for when specific constraints fail
+async function startCameraWithRelaxedConstraints() {
+    try {
+        console.log('🔄 Trying relaxed camera constraints...');
+        
+        const constraints = {
+            video: {
+                width: { ideal: 640 },
+                height: { ideal: 480 }
+                // No facingMode specified
+            }
+        };
+        
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        currentStream = stream;
+        videoElement.srcObject = stream;
+        
+        await videoElement.play();
+        startMediaPipeProcessing();
+        
+        // Hide switch button since we don't know which camera we got
+        if (switchCameraBtn) {
+            switchCameraBtn.style.display = 'none';
+        }
+        
+        console.log('✅ Camera started with relaxed constraints');
+        
+    } catch (fallbackError) {
+        console.error('❌ Relaxed constraints also failed:', fallbackError);
+        alert('Cannot access camera. Please check permissions and try again.');
+    }
+}
 
-// Initialize cart counter on page load
-document.addEventListener('DOMContentLoaded', function() {
-  console.log('Page loaded, initializing cart counter...');
-  updateCartCounter();
-  loadProducts();
-});
+// Update camera button visibility
+function showCameraControls() {
+    const cameras = getCameras().then(cameras => {
+        if (cameras.length > 1) {
+            if (switchCameraBtn) {
+                switchCameraBtn.style.display = 'block';
+            }
+            if (flipImageBtn) {
+                flipImageBtn.style.display = 'block';
+            }
+        } else {
+            console.log('ℹ️ Only one camera detected');
+            if (switchCameraBtn) {
+                switchCameraBtn.style.display = 'none';
+            }
+        }
+    });
+}
