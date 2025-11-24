@@ -4,11 +4,7 @@ const API_BASE_URL = "https://showroomar-production.up.railway.app/api";
 // Cloudinary helper function - FIXED VERSION
 function getCloudinaryUrl(publicId, width = 800, height = 1200) {
     if (!publicId) return "";
-    
-    // Remove leading slash and .png extension if present
     publicId = publicId.replace(/^\//, "").replace(/\.png$/, "");
-    
-    // Build the Cloudinary URL - NO .png extension added
     return `https://res.cloudinary.com/djwoojdrl/image/upload/${publicId}`;
 }
 
@@ -58,17 +54,18 @@ function loadShowroomContext() {
     return null;
 }
 
-// Function to create back button
+// Function to create back button (use absolute path to avoid 404)
 function createBackToShowroomButton() {
     const showroom = loadShowroomContext();
     if (!showroom) return null;
-    
+
     const backButton = document.createElement('a');
-    backButton.href = `../showroom/showroom-products.html?showroom=${showroom.id}`;
+    // Use absolute path to avoid relative path issues
+    backButton.href = `/showroom/showroom-products.html?showroom=${showroom.id}`;
     backButton.className = 'btn-secondary';
     backButton.innerHTML = `← Back to ${showroom.name}`;
     backButton.style.marginRight = '10px';
-    
+
     return backButton;
 }
 
@@ -78,7 +75,7 @@ function updateSelectedProductInfo(product) {
     const nameElement = document.getElementById('selectedProductName');
     const priceElement = document.getElementById('selectedProductPrice');
     const categoryElement = document.getElementById('selectedProductCategory');
-    
+
     if (product) {
         nameElement.textContent = product.name;
         priceElement.textContent = `Price: $${product.price}`;
@@ -109,13 +106,13 @@ function loadSavedSelection() {
 async function loadProductsForTryOn() {
     try {
         clothingSelect.innerHTML = '<option value="none">Loading products...</option>';
-        
+
         const response = await fetch(`${API_BASE_URL}/products`);
         products = await response.json();
-        
+
         populateClothingSelect();
         clothingSelect.disabled = false;
-        
+
         loadSavedSelection();
     } catch (error) {
         console.error('Error loading products:', error);
@@ -126,7 +123,7 @@ async function loadProductsForTryOn() {
 // Function to populate the dropdown select with product names only
 function populateClothingSelect() {
     clothingSelect.innerHTML = '<option value="none">Select a product...</option>';
-    
+
     products.forEach(product => {
         const option = document.createElement('option');
         option.value = product._id;
@@ -142,17 +139,17 @@ function selectProduct(productId) {
     if (product) {
         selected = product;
         localStorage.setItem("selectedModel", JSON.stringify(product));
-        
+
         shirtImg.src = getCloudinaryUrl(product.image);
         console.log('🔄 Loading:', product.image);
         console.log('📦 Cloudinary URL:', shirtImg.src);
-        
+
         shirtImg.onload = () => {
             shirtLoaded = true;
             updateSelectedProductInfo(product);
             console.log(`✅ Successfully loaded: ${product.name}`);
         };
-        
+
         shirtImg.onerror = () => {
             console.error('❌ Failed to load:', product.image);
             console.error('Full URL:', shirtImg.src);
@@ -171,7 +168,7 @@ clothingSelect.addEventListener('change', function(e) {
         updateSelectedProductInfo(null);
         return;
     }
-    
+
     const productId = e.target.value;
     selectProduct(productId);
 });
@@ -191,10 +188,10 @@ async function switchCamera() {
     if (currentStream) {
         currentStream.getTracks().forEach(track => track.stop());
     }
-    
+
     currentFacingMode = currentFacingMode === "user" ? "environment" : "user";
     console.log(`🔄 Switching to ${currentFacingMode} camera`);
-    
+
     try {
         await startCamera();
         updateCameraButtonText();
@@ -219,42 +216,29 @@ function updateCameraButtonText() {
     }
 }
 
-// Modified startCamera function with device selection
+// Robust startCamera with multiple fallbacks
 async function startCamera() {
     console.log('📷 Starting camera...');
-    try {
-        const cameras = await getCameras();
-        const hasMultipleCameras = cameras.length > 1;
-        
-        console.log(`📹 Available cameras: ${cameras.length}`);
-        
-        const constraints = {
-            video: {
-                width: { ideal: 640 },
-                height: { ideal: 480 },
-                facingMode: currentFacingMode
-            },
-        };
-        
-        if (hasMultipleCameras && cameras.length === 2) {
-            const desiredCamera = cameras.find(device => 
-                currentFacingMode === "user" ? 
-                device.label.toLowerCase().includes('front') || !device.label.toLowerCase().includes('back') :
-                device.label.toLowerCase().includes('back')
-            );
-            
-            if (desiredCamera) {
-                constraints.video.deviceId = { exact: desiredCamera.deviceId };
-            }
+    // stop previous stream if any
+    if (currentStream) {
+        currentStream.getTracks().forEach(t => t.stop());
+        currentStream = null;
+    }
+
+    // First attempt: use facingMode as ideal (less strict than exact)
+    const baseConstraints = {
+        video: {
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+            facingMode: { ideal: currentFacingMode } // try desired camera
         }
+    };
 
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
-        
-        console.log('✅ Camera access granted');
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia(baseConstraints);
         currentStream = stream;
-        videoElement.style.display = 'none';
         videoElement.srcObject = stream;
-
+        videoElement.style.display = 'none';
         saveCameraPermission();
 
         await new Promise((resolve) => {
@@ -265,35 +249,104 @@ async function startCamera() {
             setTimeout(resolve, 2000);
         });
 
-        if (hasMultipleCameras) {
+        // show controls if multiple cameras exist
+        const cameras = await getCameras();
+        if (cameras.length > 1) {
             showCameraControls();
         }
-        
+
         updateCameraButtonText();
         startMediaPipeProcessing();
-    } catch (error) {
-        console.error('❌ Camera start failed:', error);
-        
-        if (error.name === 'OverconstrainedError' || error.name === 'ConstraintNotSatisfiedError') {
-            console.log('🔄 Retrying without facing mode constraint...');
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    video: {
-                        width: { ideal: 640 },
-                        height: { ideal: 480 }
-                    }
-                });
-                currentStream = stream;
-                videoElement.srcObject = stream;
-                await videoElement.play();
-                startMediaPipeProcessing();
-            } catch (fallbackError) {
-                console.error('❌ Fallback camera start failed:', fallbackError);
+        console.log('✅ Camera started with facingMode ideal');
+        return;
+    } catch (err) {
+        console.warn('⚠️ FacingMode ideal failed:', err && err.name);
+        // Continue to fallbacks below
+    }
+
+    // Second attempt: try with no facingMode (generic request)
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+                width: { ideal: 640 },
+                height: { ideal: 480 }
             }
+        });
+        currentStream = stream;
+        videoElement.srcObject = stream;
+        videoElement.style.display = 'none';
+        saveCameraPermission();
+
+        await new Promise((resolve) => {
+            videoElement.onloadedmetadata = () => {
+                resizeCanvasToVideo();
+                videoElement.play().then(resolve).catch(resolve);
+            };
+            setTimeout(resolve, 2000);
+        });
+
+        const cameras = await getCameras();
+        if (cameras.length > 1) {
+            showCameraControls();
         }
-        
-        if (error.name !== 'NotAllowedError') {
-            alert('Camera error: ' + error.message);
+
+        updateCameraButtonText();
+        startMediaPipeProcessing();
+        console.log('✅ Camera started without facingMode (fallback)');
+        return;
+    } catch (err) {
+        console.warn('⚠️ No-facingMode attempt failed:', err && err.name);
+        // Continue to final fallback
+    }
+
+    // Final fallback: enumerate devices and try to pick a deviceId
+    try {
+        const cameras = await getCameras();
+        if (cameras.length === 0) {
+            throw new Error('No camera devices found');
+        }
+
+        // heuristic: for "environment" prefer the last camera in list, for "user" prefer first
+        let chosenDeviceId = null;
+        if (currentFacingMode === 'environment') {
+            chosenDeviceId = cameras[cameras.length - 1].deviceId;
+        } else {
+            chosenDeviceId = cameras[0].deviceId;
+        }
+
+        const stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+                deviceId: { exact: chosenDeviceId },
+                width: { ideal: 640 },
+                height: { ideal: 480 }
+            }
+        });
+
+        currentStream = stream;
+        videoElement.srcObject = stream;
+        videoElement.style.display = 'none';
+        saveCameraPermission();
+
+        await new Promise((resolve) => {
+            videoElement.onloadedmetadata = () => {
+                resizeCanvasToVideo();
+                videoElement.play().then(resolve).catch(resolve);
+            };
+            setTimeout(resolve, 2000);
+        });
+
+        if (cameras.length > 1) {
+            showCameraControls();
+        }
+
+        updateCameraButtonText();
+        startMediaPipeProcessing();
+        console.log('✅ Camera started with deviceId fallback');
+        return;
+    } catch (err) {
+        console.error('❌ Final fallback camera start failed:', err);
+        if (err.name !== 'NotAllowedError') {
+            alert('Camera error: ' + (err.message || err.name));
         }
     }
 }
@@ -309,27 +362,27 @@ function showCameraControls() {
 
 function createCameraControls() {
     const controlsContainer = document.querySelector('.camera-controls');
-    
+
     if (!controlsContainer) {
         console.warn('❌ Camera controls container not found');
         return;
     }
-    
+
     switchCameraBtn = document.createElement('button');
     switchCameraBtn.id = 'switchCamera';
     switchCameraBtn.className = 'camera-btn';
     switchCameraBtn.style.display = 'none';
     switchCameraBtn.onclick = switchCamera;
-    
+
     flipImageBtn = document.createElement('button');
     flipImageBtn.id = 'flipImage';
     flipImageBtn.className = 'camera-btn';
     flipImageBtn.style.display = 'none';
     flipImageBtn.onclick = flipImage;
-    
+
     controlsContainer.appendChild(switchCameraBtn);
     controlsContainer.appendChild(flipImageBtn);
-    
+
     updateCameraButtonText();
     flipImageBtn.textContent = '↕️ Flip Image';
 }
@@ -373,7 +426,7 @@ function resizeCanvasToVideo() {
     }
 }
 
-// Main drawing function
+// Main drawing function (kept your logic intact)
 function onResults(results) {
     if (!videoElement.srcObject) return;
 
@@ -427,7 +480,7 @@ function onResults(results) {
 
     const itemName = (selected?.name || "").toLowerCase();
     const isBottom = /trouser|pant|jean|short|bottom|skirt|legging/.test(itemName);
-    const isShort = /short/.test(itemName);
+    const isShort = /jhgfkytv/.test(itemName);
 
     if (!isBottom) {
         // --- SHIRT / JACKET ---
@@ -453,7 +506,7 @@ function onResults(results) {
         const hipMid = { x: (LH.x + RH.x) / 2, y: (LH.y + RH.y) / 2 };
         const kneeMid = { x: (LK.x + RK.x) / 2, y: (LK.y + RK.y) / 2 };
         const ankleMid = { x: (LA.x + RA.x) / 2, y: (LA.y + RA.y) / 2 };
-        
+
         const waistWidth = Math.hypot(RH.x - LH.x, RH.y - LH.y);
         const legHeight = Math.abs(ankleMid.y - hipMid.y);
         const angle = Math.atan2(RH.y - LH.y, RH.x - LH.x);
@@ -463,7 +516,7 @@ function onResults(results) {
         canvasCtx.rotate(angle);
 
         let drawW, drawH, drawY;
-        
+
         if (isShort) {
             drawW = waistWidth * 1.8;
             drawH = Math.max(30, Math.abs(kneeMid.y - hipMid.y) * 1.2);
@@ -518,7 +571,7 @@ function setupStartButton() {
         startButton.textContent = 'Starting...';
         startButton.disabled = true;
         await startCamera();
-        
+
         setTimeout(() => {
             startButton.style.display = 'none';
         }, 2000);
@@ -530,10 +583,10 @@ function setupStartButton() {
 // Initialize everything
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('📄 Page loaded');
-    
+
     // Create camera controls
     createCameraControls();
-    
+
     // Load showroom context and create back button
     const showroom = loadShowroomContext();
     if (showroom) {
@@ -546,10 +599,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
     }
-    
+
     // Load products
     await loadProductsForTryOn();
-    
+
     // Initialize shirt image
     if (selected && selected.image) {
         shirtImg.src = getCloudinaryUrl(selected.image);
