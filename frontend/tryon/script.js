@@ -188,12 +188,6 @@ async function getCameras() {
 
 
 
-function updateCameraButtonText() {
-    if (switchCameraBtn) {
-        const cameraName = currentFacingMode === "user" ? "Back" : "Front";
-        switchCameraBtn.textContent = `🔄 Switch to ${cameraName} Camera`;
-    }
-}
 
 // Robust startCamera with multiple fallbacks
 async function startCamera() {
