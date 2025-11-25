@@ -61,7 +61,7 @@ function createBackToShowroomButton() {
 
     const backButton = document.createElement('a');
     // Use absolute path to avoid relative path issues
-    backButton.href = `/showroom/showroom.html?showroom=${showroom.id}`;
+    backButton.href = `/showroom/showroom-products.html?showroom=${showroom.id}`;
     backButton.className = 'btn-secondary';
     backButton.innerHTML = `← Back to ${showroom.name}`;
     backButton.style.marginRight = '10px';
@@ -184,10 +184,37 @@ async function getCameras() {
     }
 }
 
+async function switchCamera() {
+    if (currentStream) {
+        currentStream.getTracks().forEach(track => track.stop());
+    }
 
+    currentFacingMode = currentFacingMode === "user" ? "environment" : "user";
+    console.log(`🔄 Switching to ${currentFacingMode} camera`);
 
+    try {
+        await startCamera();
+        updateCameraButtonText();
+    } catch (error) {
+        console.error('Error switching camera:', error);
+        currentFacingMode = currentFacingMode === "user" ? "environment" : "user";
+    }
+}
 
+function flipImage() {
+    isImageFlipped = !isImageFlipped;
+    if (flipImageBtn) {
+        flipImageBtn.textContent = isImageFlipped ? '↕️ Unflip Image' : '↕️ Flip Image';
+    }
+    console.log(`🔄 Image flipped: ${isImageFlipped}`);
+}
 
+function updateCameraButtonText() {
+    if (switchCameraBtn) {
+        const cameraName = currentFacingMode === "user" ? "Back" : "Front";
+        switchCameraBtn.textContent = `🔄 Switch to ${cameraName} Camera`;
+    }
+}
 
 // Robust startCamera with multiple fallbacks
 async function startCamera() {
@@ -333,7 +360,32 @@ function showCameraControls() {
     }
 }
 
+function createCameraControls() {
+    const controlsContainer = document.querySelector('.camera-controls');
 
+    if (!controlsContainer) {
+        console.warn('❌ Camera controls container not found');
+        return;
+    }
+
+    switchCameraBtn = document.createElement('button');
+    switchCameraBtn.id = 'switchCamera';
+    switchCameraBtn.className = 'camera-btn';
+    switchCameraBtn.style.display = 'none';
+    switchCameraBtn.onclick = switchCamera;
+
+    flipImageBtn = document.createElement('button');
+    flipImageBtn.id = 'flipImage';
+    flipImageBtn.className = 'camera-btn';
+    flipImageBtn.style.display = 'none';
+    flipImageBtn.onclick = flipImage;
+
+    controlsContainer.appendChild(switchCameraBtn);
+    controlsContainer.appendChild(flipImageBtn);
+
+    updateCameraButtonText();
+    flipImageBtn.textContent = '↕️ Flip Image';
+}
 
 function startMediaPipeProcessing() {
     console.log('🔄 Starting MediaPipe...');
@@ -373,7 +425,6 @@ function resizeCanvasToVideo() {
         }
     }
 }
-
 // Main drawing function (kept your logic intact)
 function onResults(results) {
     if (!videoElement.srcObject) return;
