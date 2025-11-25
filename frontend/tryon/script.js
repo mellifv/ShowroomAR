@@ -55,7 +55,19 @@ function loadShowroomContext() {
 }
 
 // Function to create back button (use absolute path to avoid 404)
+function createBackToShowroomButton() {
+    const showroom = loadShowroomContext();
+    if (!showroom) return null;
 
+    const backButton = document.createElement('a');
+    // Use absolute path to avoid relative path issues
+    backButton.href = `/showroom/showroom-products.html?showroom=${showroom.id}`;
+    backButton.className = 'btn-secondary';
+    backButton.innerHTML = `← Back to ${showroom.name}`;
+    backButton.style.marginRight = '10px';
+
+    return backButton;
+}
 
 // Function to update selected product info display
 function updateSelectedProductInfo(product) {
