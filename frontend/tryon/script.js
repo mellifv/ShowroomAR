@@ -61,7 +61,7 @@ function createBackToShowroomButton() {
 
     const backButton = document.createElement('a');
     // Use absolute path to avoid relative path issues
-    backButton.href = `/showroom/showroom-products.html?showroom=${showroom.id}`;
+    backButton.href = `/showroom/showroom.html?showroom=${showroom.id}`;
     backButton.className = 'btn-secondary';
     backButton.innerHTML = `← Back to ${showroom.name}`;
     backButton.style.marginRight = '10px';
