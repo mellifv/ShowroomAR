@@ -28,6 +28,77 @@ let flipImageBtn = null;
 // Showroom navigation variables
 let currentShowroom = null;
 
+// iOS detection
+function isIOS() {
+    return [
+        'iPad Simulator',
+        'iPhone Simulator',
+        'iPod Simulator',
+        'iPad',
+        'iPhone',
+        'iPod'
+    ].includes(navigator.platform) ||
+    (navigator.userAgent.includes("Mac") && "ontouchend" in document);
+}
+
+function applyIOSFixes() {
+    if (isIOS()) {
+        console.log('📱 iOS detected - applying fixes');
+        
+        // Add iOS-specific styles
+        const style = document.createElement('style');
+        style.textContent = `
+            /* iOS-specific fixes */
+            video {
+                -webkit-transform: translateZ(0);
+                transform: translateZ(0);
+            }
+            canvas {
+                -webkit-transform: translateZ(0);
+                transform: translateZ(0);
+            }
+        `;
+        document.head.appendChild(style);
+        
+        // Force canvas redraw on orientation change
+        window.addEventListener('orientationchange', () => {
+            setTimeout(() => {
+                resizeCanvasToVideo();
+            }, 300);
+        });
+    }
+}
+
+function setupVideoElementForIOS() {
+    // iOS requires these attributes for proper video playback
+    videoElement.setAttribute('playsinline', 'true');
+    videoElement.setAttribute('webkit-playsinline', 'true');
+    videoElement.muted = true;
+    videoElement.preload = 'metadata';
+    
+    // Ensure video element is properly styled
+    videoElement.style.position = 'absolute';
+    videoElement.style.top = '0';
+    videoElement.style.left = '0';
+    videoElement.style.width = '100%';
+    videoElement.style.height = '100%';
+    videoElement.style.objectFit = 'cover';
+    videoElement.style.display = 'none'; // Start hidden
+}
+
+function setupCameraRecovery() {
+    if (currentStream) {
+        currentStream.getTracks().forEach(track => {
+            track.addEventListener('ended', () => {
+                console.log('📹 Camera track ended, attempting recovery...');
+                setTimeout(() => {
+                    startCamera().catch(console.error);
+                }, 1000);
+            });
+        });
+    }
+}
+
 // Check if camera permission was previously granted
 function hasCameraPermission() {
     return localStorage.getItem('cameraPermission') === 'granted';
@@ -216,40 +287,79 @@ function updateCameraButtonText() {
     }
 }
 
-// Robust startCamera with multiple fallbacks
+// iOS-compatible camera start function
 async function startCamera() {
     console.log('📷 Starting camera...');
-    // stop previous stream if any
+    
+    // Stop previous stream if any
     if (currentStream) {
         currentStream.getTracks().forEach(t => t.stop());
         currentStream = null;
     }
 
-    // First attempt: use facingMode as ideal (less strict than exact)
-    const baseConstraints = {
+    // iOS-specific constraints
+    const constraints = {
         video: {
             width: { ideal: 640 },
             height: { ideal: 480 },
-            facingMode: { ideal: currentFacingMode } // try desired camera
-        }
+            facingMode: { ideal: currentFacingMode },
+            frameRate: { ideal: 30 }
+        },
+        audio: false
     };
 
     try {
-        const stream = await navigator.mediaDevices.getUserMedia(baseConstraints);
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
         currentStream = stream;
         videoElement.srcObject = stream;
-        videoElement.style.display = 'none';
+        
+        // iOS requires explicit plays and user interaction
+        videoElement.setAttribute('playsinline', 'true');
+        videoElement.setAttribute('webkit-playsinline', 'true');
+        videoElement.muted = true;
+        videoElement.style.display = 'block'; // Make visible for iOS
+        
         saveCameraPermission();
 
-        await new Promise((resolve) => {
+        // Wait for video to be ready with better iOS handling
+        await new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => {
+                reject(new Error('Camera timeout'));
+            }, 10000);
+
             videoElement.onloadedmetadata = () => {
+                console.log('✅ Video metadata loaded');
                 resizeCanvasToVideo();
-                videoElement.play().then(resolve).catch(resolve);
+                
+                // iOS requires user gesture for video.play()
+                videoElement.play().then(() => {
+                    console.log('✅ Video playback started');
+                    clearTimeout(timeout);
+                    
+                    // Hide video after it's playing (keep for iOS)
+                    setTimeout(() => {
+                        videoElement.style.display = 'none';
+                    }, 1000);
+                    
+                    resolve(stream);
+                }).catch(playError => {
+                    console.warn('⚠️ Auto-play prevented, continuing anyway:', playError);
+                    clearTimeout(timeout);
+                    resolve(stream); // Resolve even if autoplay fails
+                });
             };
-            setTimeout(resolve, 2000);
+
+            videoElement.onerror = (error) => {
+                console.error('❌ Video error:', error);
+                clearTimeout(timeout);
+                reject(error);
+            };
         });
 
-        // show controls if multiple cameras exist
+        // Setup camera recovery
+        setupCameraRecovery();
+
+        // Show controls if multiple cameras exist
         const cameras = await getCameras();
         if (cameras.length > 1) {
             showCameraControls();
@@ -257,97 +367,21 @@ async function startCamera() {
 
         updateCameraButtonText();
         startMediaPipeProcessing();
-        console.log('✅ Camera started with facingMode ideal');
+        console.log('✅ Camera started successfully');
         return;
-    } catch (err) {
-        console.warn('⚠️ FacingMode ideal failed:', err && err.name);
-        // Continue to fallbacks below
-    }
 
-    // Second attempt: try with no facingMode (generic request)
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-            video: {
-                width: { ideal: 640 },
-                height: { ideal: 480 }
-            }
-        });
-        currentStream = stream;
-        videoElement.srcObject = stream;
-        videoElement.style.display = 'none';
-        saveCameraPermission();
-
-        await new Promise((resolve) => {
-            videoElement.onloadedmetadata = () => {
-                resizeCanvasToVideo();
-                videoElement.play().then(resolve).catch(resolve);
-            };
-            setTimeout(resolve, 2000);
-        });
-
-        const cameras = await getCameras();
-        if (cameras.length > 1) {
-            showCameraControls();
-        }
-
-        updateCameraButtonText();
-        startMediaPipeProcessing();
-        console.log('✅ Camera started without facingMode (fallback)');
-        return;
-    } catch (err) {
-        console.warn('⚠️ No-facingMode attempt failed:', err && err.name);
-        // Continue to final fallback
-    }
-
-    // Final fallback: enumerate devices and try to pick a deviceId
-    try {
-        const cameras = await getCameras();
-        if (cameras.length === 0) {
-            throw new Error('No camera devices found');
-        }
-
-        // heuristic: for "environment" prefer the last camera in list, for "user" prefer first
-        let chosenDeviceId = null;
-        if (currentFacingMode === 'environment') {
-            chosenDeviceId = cameras[cameras.length - 1].deviceId;
+    } catch (error) {
+        console.error('❌ Camera access failed:', error);
+        
+        // Provide user-friendly error messages
+        if (error.name === 'NotAllowedError') {
+            alert('Camera access was denied. Please allow camera permissions in your browser settings and refresh the page.');
+        } else if (error.name === 'NotFoundError') {
+            alert('No camera found. Please check if your device has a working camera.');
         } else {
-            chosenDeviceId = cameras[0].deviceId;
+            alert('Failed to access camera: ' + error.message);
         }
-
-        const stream = await navigator.mediaDevices.getUserMedia({
-            video: {
-                deviceId: { exact: chosenDeviceId },
-                width: { ideal: 640 },
-                height: { ideal: 480 }
-            }
-        });
-
-        currentStream = stream;
-        videoElement.srcObject = stream;
-        videoElement.style.display = 'none';
-        saveCameraPermission();
-
-        await new Promise((resolve) => {
-            videoElement.onloadedmetadata = () => {
-                resizeCanvasToVideo();
-                videoElement.play().then(resolve).catch(resolve);
-            };
-            setTimeout(resolve, 2000);
-        });
-
-        if (cameras.length > 1) {
-            showCameraControls();
-        }
-
-        updateCameraButtonText();
-        startMediaPipeProcessing();
-        console.log('✅ Camera started with deviceId fallback');
-        return;
-    } catch (err) {
-        console.error('❌ Final fallback camera start failed:', err);
-        if (err.name !== 'NotAllowedError') {
-            alert('Camera error: ' + (err.message || err.name));
-        }
+        throw error;
     }
 }
 
@@ -425,6 +459,7 @@ function resizeCanvasToVideo() {
         }
     }
 }
+
 // Main drawing function (kept your logic intact)
 function onResults(results) {
     if (!videoElement.srcObject) return;
@@ -545,10 +580,11 @@ pose.setOptions({
 });
 pose.onResults(onResults);
 
-// Simple fallback start button
+// iOS-compatible start button
 function setupStartButton() {
     const startButton = document.createElement('button');
     startButton.textContent = '🎥 Start Camera';
+    startButton.id = 'cameraStartBtn';
     startButton.style.cssText = `
         position: fixed;
         top: 80px;
@@ -569,11 +605,21 @@ function setupStartButton() {
     startButton.onclick = async () => {
         startButton.textContent = 'Starting...';
         startButton.disabled = true;
-        await startCamera();
-
-        setTimeout(() => {
+        
+        try {
+            await startCamera();
             startButton.style.display = 'none';
-        }, 2000);
+            
+            // Force a resize after camera starts
+            setTimeout(() => {
+                resizeCanvasToVideo();
+            }, 500);
+            
+        } catch (error) {
+            console.error('Failed to start camera:', error);
+            startButton.textContent = '🎥 Start Camera';
+            startButton.disabled = false;
+        }
     };
 
     document.body.appendChild(startButton);
@@ -583,6 +629,10 @@ function setupStartButton() {
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('📄 Page loaded');
 
+    // Apply iOS fixes first
+    applyIOSFixes();
+    setupVideoElementForIOS();
+    
     // Create camera controls
     createCameraControls();
 
@@ -613,13 +663,28 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.log('✅ Default shirt image loaded');
     };
 
-    // Start camera if permission granted
-    if (hasCameraPermission()) {
+    // Handle camera start based on platform
+    if (isIOS()) {
+        // Always show start button on iOS
+        setupStartButton();
+    } else if (hasCameraPermission()) {
         console.log('🔑 Camera permission remembered - starting automatically');
         await startCamera();
     } else {
         setupStartButton();
     }
+    
+    // Handle page visibility changes (important for iOS)
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && currentStream) {
+            // Page became visible again, restart camera if needed
+            setTimeout(() => {
+                if (!videoElement.srcObject) {
+                    startCamera().catch(console.error);
+                }
+            }, 300);
+        }
+    });
 });
 
 // Cleanup
