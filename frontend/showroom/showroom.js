@@ -50,7 +50,7 @@ async function loadProducts() {
         <div class="product-info">
           <h3>${p.name}</h3>
           <p class="category">${p.category}</p>
-          <p class="price"><b>$${p.price}</b></p>
+          <p class="price"><b>₸${p.price}</b></p>
         </div>
         <div class="product-actions">
           <button class="btn try-on-btn" onclick="tryOnProduct('${p._id}')">Try On</button>
