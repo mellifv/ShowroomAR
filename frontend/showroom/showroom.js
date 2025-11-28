@@ -8,15 +8,14 @@ console.log('Showroom ID:', showroomId);
 let products = []; // Store products globally
 
 // CORRECT Cloudinary URL function
-// ZOOMED IN VERSION - Shows whole clothing item
-function getCloudinaryUrl(publicId, width = 300, height = 400) {
+function getCloudinaryUrl(publicId, width = 400, height = 600) {
     if (!publicId) return "../images/default-product.png";
     
-    // Clean the public_id
+    // Clean the public_id - remove any file extensions and leading slashes
     publicId = publicId.replace(/^\//, "").replace(/\.(png|jpg|jpeg|webp)$/i, "");
     
-    // Use 'c_fill' to fill the entire area and 'g_auto' for smart cropping
-    return `https://res.cloudinary.com/djwoojdrl/image/upload/w_${width},h_${height},c_fill,g_auto/${publicId}`;
+    // Build the Cloudinary URL with transformations
+    return `https://res.cloudinary.com/djwoojdrl/image/upload/w_${width},h_${height},c_fill/${publicId}`;
 }
 
 async function loadProducts() {
