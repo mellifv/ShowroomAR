@@ -149,7 +149,7 @@ function updateSelectedProductInfo(product) {
 
     if (product) {
         nameElement.textContent = product.name;
-        priceElement.textContent = `Price: $${product.price}`;
+        priceElement.textContent = `Price: ₸${product.price}`;
         categoryElement.textContent = `Category: ${product.category}`;
         infoDiv.style.display = 'block';
     } else {
